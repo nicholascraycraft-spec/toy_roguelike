@@ -154,6 +154,25 @@ class Actor:
     target_pos: Vec | None = None      # where I think the player is
     # target_age: int = 0                # turns since I actually saw them
 
+#region GRAMMAR
+def the(game, actor):
+    """'you' for the player, 'the kobold' for everyone else."""
+    return "you" if actor is game.player else f"the {actor.name}"
+
+def The(game, actor):
+    return the(game, actor).capitalize()
+
+def verb(game, actor, base):
+    """Conjugate for the actor: 'you hit' but 'the kobold hits'."""
+    if actor is game.player:
+        return "are" if base == "be" else base
+    if base == "be":
+        return "is"
+    if base.endswith(("s", "sh", "ch", "x", "z")):
+        return base + "es"
+    return base + "s"
+# endregion
+
 class GameOver(Exception):
     def __init__(self, reason):
         self.reason = reason
@@ -166,7 +185,8 @@ def die(game, killer, target):
         level.items.setdefault(target.pos, []).append(item)
     target.inventory.clear()
 
-    game.msgs.add(f"the {(target.name)} dies.")
+    if target is not game.player:        # the player's death is announced by main
+        game.msgs.add(f"{The(game, target)} dies.")
     del level.actors[target.pos]
     level.turn_order.remove(target)
     if killer is not None and killer is not target:
@@ -178,7 +198,7 @@ def die(game, killer, target):
 
 def resists(game, target):#, kind) # kind as in the damage_kind
     if game.rng.randint(1, 100) <= target.species.mr:
-        game.msgs.add(f"The {target.name} resists!")
+        game.msgs.add(f"{The(game, target)} {verb(game, target, 'resist')}!")
         return True
     return False
 
@@ -192,12 +212,14 @@ def attack(game, actor, target):
     rng = game.rng
     for ak_name, dice, sides in actor.species.attacks:
         if rng.randint(1, 20) >= to_hit(game, actor, target):
-            game.msgs.add(f"the {(actor.name)} misses the {(target.name)}.")
+            game.msgs.add(f"{The(game, actor)} {verb(game, actor, 'miss')} "
+                          f"{the(game, target)}.")
             continue
         dmg = sum(rng.randint(1, sides) for _ in range(dice))
         target.hp -= dmg
         disturb(game, target)
-        game.msgs.add(f"the {(actor.name)} {(ak_name)}s the {(target.name)}.")
+        game.msgs.add(f"{The(game, actor)} {verb(game, actor, ak_name)} "
+                      f"{the(game, target)}.")
         if target.hp <= 0:
             die(game, actor, target)
             return

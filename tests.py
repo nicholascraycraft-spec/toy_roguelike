@@ -2,7 +2,7 @@ import random
 import sys
 
 from actors import (GIANT_ANT, HUMAN, NEWT, RAT, Actor, GameOver, adjust_speed,
-                    place_actor, spawn, to_hit)
+                    The, place_actor, spawn, the, to_hit, verb)
 from dungeon import GOAL_DEPTH, MAP, gen_rooms_level, generate, load, travel
 from items import BOOK, POTION_EFFECTS, WAND_EFFECTS, Item, Potions, pick_up
 from level import beam_path, flow_field
@@ -131,6 +131,16 @@ def test_potions():
     assert p.max_hp == full + 1 and p.hp == p.max_hp
     assert p.confused > 0               # from the confusion potion above
 
+def test_messages_use_you():
+    game = Game(random.Random(0), spawn(HUMAN, Vec(0, 0)))
+    game.player.given_name = "you"
+    kobold = spawn(RAT, Vec(1, 0))
+    assert f"{The(game, game.player)} {verb(game, game.player, 'hit')} {the(game, kobold)}" \
+        == "You hit the sewer rat"
+    assert f"{The(game, kobold)} {verb(game, kobold, 'touch')} {the(game, game.player)}" \
+        == "The sewer rat touches you"
+    assert verb(game, game.player, "be") == "are" and verb(game, kobold, "be") == "is"
+
 def test_escape_needs_book():
     lvl, start = load(MAP)
     game = Game(random.Random(0), Actor(Vec(0,0), "@", given_name="you", species=HUMAN))
@@ -162,4 +172,5 @@ if __name__ == "__main__":
     test_lower_ac_is_harder_to_hit()
     test_book_rouses_floor()
     test_potions()
+    test_messages_use_you()
     print("all tests ok")

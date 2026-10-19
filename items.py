@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from actors import adjust_speed, die, disturb, move_actor, push_from
+from actors import The, adjust_speed, die, disturb, move_actor, push_from, verb
 from level import compute_fov, free_cells
 from vec import Vec, chebyshev
 
@@ -75,7 +75,7 @@ def bell_ranna(game, actor, item):
     for other in audience(game, actor, radius=8):
         other.asleep = game.rng.randint(5, 15)
         if heard(game, actor, other):
-            game.msgs.add(f"The {other.name} falls asleep.")
+            game.msgs.add(f"{The(game, other)} {verb(game, other, 'fall')} asleep.")
 
 def bell_mosrael(game, actor, item):
     game.msgs.add("A jangling shriek claws at the walls.")
@@ -91,9 +91,9 @@ def bell_kibeth(game, actor, item):
         if push_from(game, other, actor.pos):
             other.frozen = 1                   # so they don't just step back
             if heard(game, actor, other):
-                game.msgs.add(f"The {other.name} stumbles backward.")
+                game.msgs.add(f"{The(game, other)} {verb(game, other, 'stumble')} backward.")
         else:
-            game.msgs.add(f"The {other.name} is driven against the wall.")
+            game.msgs.add(f"{The(game, other)} {verb(game, other, 'be')} driven against the wall.")
 
 def bell_dyrim(game, actor, item):
     game.msgs.add("A clear, articulate note.")
@@ -140,14 +140,14 @@ def bell_saraneth(game, actor, item):
         margin = game.rng.randint(1, 20) - other.species.level * 2
         if margin > 10:
             other.frozen = game.rng.randint(2, 5)
-            game.msgs.add(f"The {other.name} is bound fast.")
+            game.msgs.add(f"{The(game, other)} {verb(game, other, 'be')} bound fast.")
         elif margin > 4:
             other.frozen = 1
-            game.msgs.add(f"The {other.name} falters.")
+            game.msgs.add(f"{The(game, other)} {verb(game, other, 'falter')}.")
         else:
             other.target_pos = actor.pos
             # other.target_age = -10
-            game.msgs.add(f"The {other.name} shrugs off the command!")
+            game.msgs.add(f"{The(game, other)} {verb(game, other, 'shrug')} off the command!")
 
 def bell_astarael(game, actor, item):
     game.msgs.add("Astarael sounds, and everything that hears it must sleep.")
@@ -183,36 +183,37 @@ def wand_repulsion(game, actor, target):
         return
     if push_from(game, target, actor.pos):
         target.frozen = max(target.frozen, 1)
-        game.msgs.add(f"The {target.name} is hurled backward!")
+        game.msgs.add(f"{The(game, target)} {verb(game, target, 'be')} hurled backward!")
     else:
-        game.msgs.add(f"The {target.name} shudders but holds position.")
+        game.msgs.add(f"{The(game, target)} {verb(game, target, 'shudder')} but "
+                      f"{verb(game, target, 'hold')} position.")
 
 def wand_sleep(game, actor, target):
     target.asleep = game.rng.randint(10, 25)
     target.frozen = 3
-    game.msgs.add(f"The {target.name} falls asleep.")
+    game.msgs.add(f"{The(game, target)} {verb(game, target, 'fall')} asleep.")
 
 def wand_death(game, actor, target):
-    game.msgs.add(f"The {target.name} is struck by a bolt of death!")
+    game.msgs.add(f"{The(game, target)} {verb(game, target, 'be')} struck by a bolt of death!")
     die(game, actor, target)
 
 def wand_striking(game, actor, target):
     dmg = game.rng.randint(2, 12)
     target.hp -= dmg
     disturb(game, target)
-    game.msgs.add(f"The {target.name} is hit by an invisible force!")
+    game.msgs.add(f"{The(game, target)} {verb(game, target, 'be')} hit by an invisible force!")
     if target.hp <= 0:
         die(game, actor, target)
 
 def wand_slow(game, actor, target):
     adjust_speed(game, target, -1,
-                 f"The {target.name} speeds up!",
-                 f"The {target.name} slows down.")
+                 f"{The(game, target)} {verb(game, target, 'speed')} up!",
+                 f"{The(game, target)} {verb(game, target, 'slow')} down.")
 
 def wand_speed(game, actor, target):
     adjust_speed(game, target, +1,
-                 f"The {target.name} speeds up!",
-                 f"The {target.name} slows down.")
+                 f"{The(game, target)} {verb(game, target, 'speed')} up!",
+                 f"{The(game, target)} {verb(game, target, 'slow')} down.")
 
 def wand_teleport(game, actor, target):
     level = game.level
@@ -222,7 +223,7 @@ def wand_teleport(game, actor, target):
         return
     dest = game.rng.choice(candidates)
     move_actor(level, target, dest)
-    game.msgs.add(f"The {target.name} vanishes!")
+    game.msgs.add(f"{The(game, target)} {verb(game, target, 'vanish')}!")
 
 
 def wand_nothing(game, actor, target):
