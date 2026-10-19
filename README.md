@@ -38,6 +38,10 @@ Press `?` in the game for this list.
 | `q` | quaff a potion |
 | `o` `c` | open / close a door |
 | `;` `:` | look around with a cursor / look here |
+| `#pray` | ask the Charter for help; it won't answer if you ask too often |
+| `#call` | nickname an unidentified kind of item ("murky potion called red stuff") |
+| `#?` | list extended commands (`#` takes any unique prefix, like `#p`) |
+| `?` | help |
 | `Q` | quit |
 
 ## Items
@@ -52,9 +56,10 @@ as the wrong one.
 
 | File | What's in it |
 | --- | --- |
-| `main.py` | game loop, commands, using items |
+| `main.py` | game loop and commands |
+| `pray.py` | prayer: timeout, troubles, the Charter's moods |
 | `actors.py` | monster species, combat, experience, message grammar |
-| `items.py` | bells, wands, potions and their effects; the Book |
+| `items.py` | bells, wands, potions, their effects, and using them; the Book |
 | `dungeon.py` | level generation (rooms and mazes), the sandbox map, stairs |
 | `level.py` | the map grid, field of view, monster pathing |
 | `ai.py` | monster turns |

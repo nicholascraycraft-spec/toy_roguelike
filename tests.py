@@ -215,6 +215,15 @@ def test_prayer_mood_fades():
     pray.tick(game); pray.tick(game)
     assert not game.god_angry and not game.god_displeased
 
+def test_called_names_show():
+    game = Game(random.Random(0), spawn(HUMAN, Vec(0, 0)))
+    game.appearance[Potions.HEALING] = "murky potion"
+    potion = Item(Potions.HEALING)
+    game.called[Potions.HEALING] = "red stuff"
+    assert items.a(game, potion) == "a murky potion called red stuff"
+    game.identified.add(Potions.HEALING)    # the true name wins once known
+    assert items.a(game, potion) == "a potion of healing"
+
 def test_escape_needs_book():
     lvl, start = load(MAP)
     game = Game(random.Random(0), Actor(Vec(0,0), "@", given_name="you", species=HUMAN))
@@ -253,4 +262,5 @@ if __name__ == "__main__":
     test_unseen_use_teaches_nothing()
     test_prayer()
     test_prayer_mood_fades()
+    test_called_names_show()
     print("all tests ok")

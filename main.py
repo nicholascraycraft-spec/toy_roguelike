@@ -41,6 +41,7 @@ class Game:
         self.prayer_timeout = pray.START_TIMEOUT
         self.god_displeased = False
         self.god_angry = False
+        self.called: dict[ItemKind, str] = {}   # #call nicknames for unknown kinds
     @property
     def level(self):
         return self.levels[self.depth]
@@ -282,6 +283,7 @@ Doors       o  open      c  close   (walking into a door opens it)
 Look        ;  move a cursor around    :  look here
 Extended    #  then a command name; any unique prefix works
               #pray   ask the Charter for help (don't ask too often)
+              #call   nickname an unidentified kind of item
               #?      list extended commands
 Help        ?
 Quit        Q
@@ -325,6 +327,25 @@ def cmd_pray(stdscr, game, player):
         return None
     return lambda: pray.pray(game)
 
+def cmd_call(stdscr, game, player):
+    unknown = [it for it in player.inventory
+               if it.kind in game.appearance and it.kind not in game.identified]
+    if not unknown:
+        game.msgs.add("You aren't carrying anything unidentified.")
+        return None
+    item = show_menu(stdscr, "What do you want to call?",
+                     [(a(game, it), it) for it in unknown])
+    if item is None:
+        return None
+    name = get_line(stdscr, game, f"Call a {game.appearance[item.kind]}: ")
+    if name is None:
+        return None
+    if name:
+        game.called[item.kind] = name
+    else:
+        game.called.pop(item.kind, None)  # an empty name forgets the nickname
+    return None                           # naming things is free
+
 def cmd_extended_list(stdscr, game, player):
     show_menu(stdscr, "Extended commands:",
               [(f"#{name}", name) for name in EXTENDED if name != "?"])
@@ -332,6 +353,7 @@ def cmd_extended_list(stdscr, game, player):
 
 EXTENDED = {
     "pray": cmd_pray,
+    "call": cmd_call,
     "?": cmd_extended_list,
 }
 

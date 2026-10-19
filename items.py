@@ -422,7 +422,10 @@ def zap_wand(game, actor, item, d):
 def item_name(game, item):
     if item.kind in game.identified or item.kind not in game.appearance:
         return item.kind.name
-    return game.appearance[item.kind]
+    name = game.appearance[item.kind]
+    if called := game.called.get(item.kind):
+        name += f" called {called}"
+    return name
 
 
 def pick_up(game, actor, item=None):
