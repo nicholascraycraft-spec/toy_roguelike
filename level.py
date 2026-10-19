@@ -1,8 +1,10 @@
 from collections import deque
 import math
 from fractions import Fraction
+from typing import TYPE_CHECKING
 
-from actors import Actor
+if TYPE_CHECKING:          # actors imports level, so only import for type hints
+    from actors import Actor
 from terrain import WALL
 from vec import Vec
 
