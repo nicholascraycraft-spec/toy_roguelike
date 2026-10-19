@@ -6,6 +6,7 @@ from dungeon import GOAL_DEPTH, MAP, gen_rooms_level, load, travel
 from items import BOOK, WAND_EFFECTS, Item
 from level import beam_path, flow_field
 from main import Game
+from terrain import STAIRS_DOWN
 from vec import Vec
 
 def test_effects_preserve_indices():
@@ -77,6 +78,13 @@ def test_goal_placed_once(trials=20):
         assert not any(it.kind is BOOK for stack in shallow.items.values()
                        for it in stack), f"seed {seed}: book on wrong floor"
 
+def test_goal_floor_is_bottom(trials=20):
+    for seed in range(trials):
+        lvl = gen_rooms_level(random.Random(seed), 80, 21, depth=GOAL_DEPTH)
+        assert lvl.down_stair is None, f"seed {seed}: stairs below the Book"
+        assert not any(lvl[Vec(x, y)] is STAIRS_DOWN
+                       for y in range(lvl.h) for x in range(lvl.w))
+
 def test_escape_needs_book():
     lvl, start = load(MAP)
     game = Game(random.Random(0), Actor(Vec(0,0), "@", given_name="you", species=HUMAN))
@@ -103,4 +111,5 @@ if __name__ == "__main__":
     test_speed_clamps()
     test_goal_placed_once()
     test_escape_needs_book()
+    test_goal_floor_is_bottom()
     print("all tests ok")

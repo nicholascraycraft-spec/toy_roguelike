@@ -6,7 +6,7 @@ import random
 
 from actors import HUMAN, GameOver, attack, move_actor, place_actor, resists, spawn, spawn_wanderer
 from ai import take_turn
-from dungeon import MAP, load, travel
+from dungeon import GOAL_DEPTH, MAP, load, travel
 from items import BELL_APPEARANCES, BELL_EFFECTS, BELLS, WAND_APPEARANCES, WAND_EFFECTS, WANDS, ItemKind, Wands, a, drop, identify, pick_up
 from level import Level, beam_path, compute_fov, dig_path, passable
 from render import draw, init_styles
@@ -79,6 +79,9 @@ def ring_bell(game, actor, item):
 
 def do_digging(game, stdscr, actor, item, d):
     if d == Vec(0, 0):
+        if game.depth >= GOAL_DEPTH:
+            game.msgs.add("The bolt glances off the bedrock.")
+            return
         game.msgs.add("You dig a hole in the floor.")
         identify(game, item.kind)
         travel(game, +1)

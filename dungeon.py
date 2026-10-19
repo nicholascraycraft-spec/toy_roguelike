@@ -210,9 +210,10 @@ def gen_rooms_level(rng, w, h, depth):
     level.rooms = rooms
     up, down = rng.sample(rooms, 2)
     level.up_stair = up.center()
-    level.down_stair = down.center()
     level[level.up_stair] = STAIRS_UP
-    level[level.down_stair] = STAIRS_DOWN
+    if depth < GOAL_DEPTH:              # the Book's floor is the bottom
+        level.down_stair = down.center()
+        level[level.down_stair] = STAIRS_DOWN
 
     assert connected(level), "generator produced a disconnected level"
     place_monsters(rng, level, depth, count=None)
@@ -236,6 +237,10 @@ def travel(game, delta):
         if carrying_book(game.player):
             raise GameOver("won")
         game.msgs.add("You won't leave without the Book of the Dead.")
+        return
+
+    if dest_depth > GOAL_DEPTH:
+        game.msgs.add("There is nothing below this floor.")
         return
 
     del level.actors[game.player.pos]
