@@ -4,7 +4,7 @@ import sys
 from actors import (GIANT_ANT, HUMAN, NEWT, RAT, Actor, GameOver, adjust_speed,
                     place_actor, spawn, to_hit)
 from dungeon import GOAL_DEPTH, MAP, gen_rooms_level, generate, load, travel
-from items import BOOK, WAND_EFFECTS, Item
+from items import BOOK, WAND_EFFECTS, Item, pick_up
 from level import beam_path, flow_field
 from main import Game
 from terrain import STAIRS_DOWN, STAIRS_UP
@@ -99,6 +99,20 @@ def test_lower_ac_is_harder_to_hit():
     assert to_hit(game, game.player, ant) < to_hit(game, game.player, newt)
     assert to_hit(game, rat, ant) < to_hit(game, rat, newt)
 
+def test_book_rouses_floor():
+    lvl, start = load(MAP)
+    game = Game(random.Random(0), spawn(HUMAN, Vec(0, 0)))
+    game.levels.append(lvl)
+    place_actor(lvl, game.player, start)
+    monsters = [m for m in lvl.turn_order if m is not game.player]
+    for m in monsters:
+        m.asleep = 100
+    lvl.items[start] = [Item(BOOK)]
+    pick_up(game, game.player)
+    assert game.book_taken
+    for m in monsters:
+        assert not m.asleep and m.target_pos == start, f"{m.name} didn't wake"
+
 def test_escape_needs_book():
     lvl, start = load(MAP)
     game = Game(random.Random(0), Actor(Vec(0,0), "@", given_name="you", species=HUMAN))
@@ -128,4 +142,5 @@ if __name__ == "__main__":
     test_goal_floor_is_bottom()
     test_first_floor_has_exit()
     test_lower_ac_is_harder_to_hit()
+    test_book_rouses_floor()
     print("all tests ok")

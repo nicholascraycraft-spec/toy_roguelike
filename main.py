@@ -37,6 +37,7 @@ class Game:
         self.depth = 0
         self.appearance: dict[ItemKind, str] = {}
         self.identified: set[ItemKind] = set()
+        self.book_taken = False          # once true, the climb out is hunted
     @property
     def level(self):
         return self.levels[self.depth]
@@ -451,7 +452,10 @@ def main(stdscr, test_map=False, seed=None):
             game.turn += 1
 
             # # spawn new monsters
-            if rng.randint(1, 60 - game.player.xp_level*2) == 1:
+            odds = 60 - game.player.xp_level*2
+            if game.book_taken:
+                odds //= 3
+            if rng.randint(1, odds) == 1:
                 spawn_wanderer(game)
             regenerate(game) #regen between turns
 

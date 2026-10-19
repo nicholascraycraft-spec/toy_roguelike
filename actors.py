@@ -211,7 +211,9 @@ def place_actor(level, actor, start):
     level.turn_order.append(actor)
 
 def spawn_at(level, species, pos):
-    place_actor(level, spawn(species, pos), pos)
+    actor = spawn(species, pos)
+    place_actor(level, actor, pos)
+    return actor
 
 def move_actor(level, actor, dest):
     # not responsible for ensuring ismovable()
@@ -260,4 +262,6 @@ def spawn_wanderer(game):
     candidates = [p for p in free_cells(level) if p not in fov]
     if not candidates:
         return
-    spawn_at(level, pick_species(rng, game.depth), rng.choice(candidates))
+    actor = spawn_at(level, pick_species(rng, game.depth), rng.choice(candidates))
+    if game.book_taken:                  # the dungeon knows where you are
+        actor.target_pos = game.player.pos

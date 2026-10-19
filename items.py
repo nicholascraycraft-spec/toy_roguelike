@@ -284,8 +284,19 @@ def pick_up(game, actor, item=None):
     actor.inventory.append(item)
     if actor is game.player:
         game.msgs.add(f"You pick up {a(game, item)}.")
+        if item.kind is BOOK and not game.book_taken:
+            rouse_dungeon(game)
     else:
         game.msgs.add(f"The {actor.name} picks up {a(game, item)}.")
+
+def rouse_dungeon(game):
+    """Taking the Book wakes the floor and sets everything on the player's trail."""
+    game.book_taken = True
+    game.msgs.add("The Book's pages stir. Something in the dark wakes, and turns toward you.")
+    for other in game.level.turn_order:
+        if other is not game.player:
+            disturb(game, other)
+            other.target_pos = game.player.pos
 
 def drop(game, actor, item):
     level = game.level
