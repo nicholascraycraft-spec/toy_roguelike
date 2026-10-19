@@ -8,6 +8,7 @@ from dungeon import GOAL_DEPTH, MAP, generate, load, travel
 from items import (BELL_APPEARANCES, BELLS, POTION_APPEARANCES, POTIONS, WAND_APPEARANCES,
                    WANDS, ItemKind, a, drop, pick_up, quaff, ring_bell, zap_wand)
 from level import Level, compute_fov, passable
+import pray
 from render import draw, init_styles
 from terrain import DOOR_CLOSED, DOOR_OPEN, STAIRS_DOWN, STAIRS_UP, close_door, open_door
 from vec import Vec
@@ -37,6 +38,9 @@ class Game:
         self.identified: set[ItemKind] = set()
         self.book_taken = False          # once true, the climb out is hunted
         self.animate = lambda p: None    # main draws beams; tests leave this quiet
+        self.prayer_timeout = pray.START_TIMEOUT
+        self.god_displeased = False
+        self.god_angry = False
     @property
     def level(self):
         return self.levels[self.depth]
@@ -276,6 +280,9 @@ Zap         z  zap a wand, then pick a direction
 Quaff       q  drink a potion
 Doors       o  open      c  close   (walking into a door opens it)
 Look        ;  move a cursor around    :  look here
+Extended    #  then a command name; any unique prefix works
+              #pray   ask the Charter for help (don't ask too often)
+              #?      list extended commands
 Help        ?
 Quit        Q
 
@@ -289,6 +296,54 @@ def cmd_help(stdscr, game, player):
     stdscr.refresh()
     stdscr.getch()
     return None                      # reading the help is free
+
+def get_line(stdscr, game, prompt, maxlen=30):
+    """Read a line of text on the message row. None if cancelled with ESC."""
+    text = ""
+    while True:
+        draw(stdscr, game, game.player)
+        _, w = stdscr.getmaxyx()
+        stdscr.addstr(0, 0, (prompt + text)[:w - 1].ljust(w - 1))
+        stdscr.refresh()
+        key = stdscr.getch()
+        if key == 27:
+            return None
+        if key in (10, 13, curses.KEY_ENTER):
+            return text.strip()
+        if key in (8, 127, curses.KEY_BACKSPACE):
+            text = text[:-1]
+        elif 32 <= key < 127 and len(text) < maxlen:
+            text += chr(key)
+
+def ask_yn(stdscr, game, question):
+    game.msgs.add(f"{question} [yn] (n)")
+    draw(stdscr, game, game.player)
+    return stdscr.getch() in (ord('y'), ord('Y'))
+
+def cmd_pray(stdscr, game, player):
+    if not ask_yn(stdscr, game, "Are you sure you want to pray?"):
+        return None
+    return lambda: pray.pray(game)
+
+def cmd_extended_list(stdscr, game, player):
+    show_menu(stdscr, "Extended commands:",
+              [(f"#{name}", name) for name in EXTENDED if name != "?"])
+    return None
+
+EXTENDED = {
+    "pray": cmd_pray,
+    "?": cmd_extended_list,
+}
+
+def cmd_extended(stdscr, game, player):
+    name = get_line(stdscr, game, "# ")
+    if not name:
+        return None
+    matches = [n for n in EXTENDED if n.startswith(name.lower())]
+    if len(matches) != 1:
+        game.msgs.add(f"Unknown extended command: {name}. Try #? for a list.")
+        return None
+    return EXTENDED[matches[0]](stdscr, game, player)
 
 COMMANDS = {
     ord(','): cmd_pickup,
@@ -306,6 +361,7 @@ COMMANDS = {
     ord(';'): cmd_look,
     ord(':'): cmd_look_down,
     ord('?'): cmd_help,
+    ord('#'): cmd_extended,
 }
 
 def get_action(stdscr, game, player):
@@ -464,6 +520,7 @@ def main(stdscr, test_map=False, seed=None):
             if rng.randint(1, odds) == 1:
                 spawn_wanderer(game)
             regenerate(game) #regen between turns
+            pray.tick(game)
 
 
     except GameOver as e:

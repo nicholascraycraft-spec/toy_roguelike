@@ -7,6 +7,7 @@ from dungeon import GOAL_DEPTH, MAP, gen_rooms_level, generate, load, travel
 from items import BOOK, POTION_EFFECTS, WAND_EFFECTS, Item, Potions, pick_up, quaff
 from level import beam_path, compute_fov, flow_field
 from main import Game
+import pray
 from ai import use_item
 import items
 from terrain import STAIRS_DOWN, STAIRS_UP, WALL
@@ -185,6 +186,35 @@ def test_unseen_use_teaches_nothing():
     quaff(game, kobold, potion)
     assert Potions.HEALING not in game.identified
 
+def test_prayer():
+    game = Game(random.Random(0), spawn(HUMAN, Vec(0, 0)))
+    p = game.player
+    p.hp_gained = 20                      # so a smiting can't end the test
+    p.hp = 1
+    pray.pray(game)                       # timeout 300: too soon, even hurt
+    assert p.hp == 1 and game.god_displeased
+    game.prayer_timeout = 150             # low HP is safe under 200
+    pray.pray(game)
+    assert p.hp == p.max_hp and not game.god_displeased
+    assert 50 <= game.prayer_timeout <= 1000
+    p.confused = 10                       # confusion alone needs under 100
+    pray.pray(game)
+    assert p.confused and game.god_displeased
+    pray.pray(game)                       # again while displeased: anger
+    assert game.god_angry and p.hp < p.max_hp
+    game.prayer_timeout = 0               # even a safe prayer fails while angry
+    game.god_angry = True
+    p.hp = p.max_hp
+    pray.pray(game)
+    assert p.hp < p.max_hp
+
+def test_prayer_mood_fades():
+    game = Game(random.Random(0), spawn(HUMAN, Vec(0, 0)))
+    game.god_angry = game.god_displeased = True
+    game.prayer_timeout = 2
+    pray.tick(game); pray.tick(game)
+    assert not game.god_angry and not game.god_displeased
+
 def test_escape_needs_book():
     lvl, start = load(MAP)
     game = Game(random.Random(0), Actor(Vec(0,0), "@", given_name="you", species=HUMAN))
@@ -221,4 +251,6 @@ if __name__ == "__main__":
     test_monster_zaps_when_lined_up()
     test_monster_never_zaps_death()
     test_unseen_use_teaches_nothing()
+    test_prayer()
+    test_prayer_mood_fades()
     print("all tests ok")
