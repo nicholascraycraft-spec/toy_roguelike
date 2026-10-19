@@ -395,6 +395,7 @@ def main(stdscr):
         s_level, start = load(MAP)
         game.levels.append(s_level)
         place_actor(s_level, player, start)
+        game.msgs.add("Find the Book of the Dead on level 6 and carry it back up the stairs.")
 
         curses.curs_set(0)
         stdscr.keypad(True)
@@ -448,7 +449,11 @@ def main(stdscr):
     except GameOver as e:
         if e.reason == "quit":
             return
-        game.msgs.add("You die...")
+        if e.reason == "won":
+            game.msgs.add(f"You escape the dungeon with the Book of the Dead "
+                          f"in {game.turn} turns!")
+        else:
+            game.msgs.add("You die...")
         draw(stdscr, game, player)
         stdscr.getch()
 

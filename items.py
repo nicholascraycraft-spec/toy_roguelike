@@ -50,7 +50,8 @@ BELL_APPEARANCES = [
 # grammar behavior
 def a(game, item):
     name = item_name(game, item)
-    if item.kind.proper and item.kind in game.identified:
+    if item.kind.proper and (item.kind in game.identified
+                             or item.kind not in game.appearance):
         return name
     return f"{'an' if name[0] in 'aeiou' else 'a'} {name}"
 
@@ -258,6 +259,11 @@ WAND_EFFECTS = {
 ITEMS = WANDS + BELLS
 # endregion
 
+#region GOAL
+# not in ITEMS, so it never generates at random; placed once on GOAL_DEPTH
+BOOK = ItemKind("the Book of the Dead", "?", "item", weight=50, proper=True)
+# endregion
+
 def item_name(game, item):
     if item.kind in game.identified or item.kind not in game.appearance:
         return item.kind.name
@@ -277,9 +283,9 @@ def pick_up(game, actor, item=None):
         del level.items[actor.pos]
     actor.inventory.append(item)
     if actor is game.player:
-        game.msgs.add(f"You pick up a {item_name(game, item)}.")
+        game.msgs.add(f"You pick up {a(game, item)}.")
     else:
-        game.msgs.add(f"The {actor.name} picks up a {item_name(game, item)}.")
+        game.msgs.add(f"The {actor.name} picks up {a(game, item)}.")
 
 def drop(game, actor, item):
     level = game.level

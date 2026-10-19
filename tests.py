@@ -2,8 +2,8 @@ import random
 import sys
 
 from actors import HUMAN, RAT, Actor, GameOver, adjust_speed, place_actor
-from dungeon import MAP, gen_rooms_level, load
-from items import WAND_EFFECTS
+from dungeon import GOAL_DEPTH, MAP, gen_rooms_level, load, travel
+from items import BOOK, WAND_EFFECTS, Item
 from level import beam_path, flow_field
 from main import Game
 from vec import Vec
@@ -67,6 +67,32 @@ def test_speed_clamps():
 
 
 
+def test_goal_placed_once(trials=20):
+    for seed in range(trials):
+        lvl = gen_rooms_level(random.Random(seed), 80, 21, depth=GOAL_DEPTH)
+        books = [it for stack in lvl.items.values() for it in stack
+                 if it.kind is BOOK]
+        assert len(books) == 1, f"seed {seed}: {len(books)} books"
+        shallow = gen_rooms_level(random.Random(seed), 80, 21, depth=1)
+        assert not any(it.kind is BOOK for stack in shallow.items.values()
+                       for it in stack), f"seed {seed}: book on wrong floor"
+
+def test_escape_needs_book():
+    lvl, start = load(MAP)
+    game = Game(random.Random(0), Actor(Vec(0,0), "@", given_name="you", species=HUMAN))
+    game.levels.append(lvl)
+    place_actor(lvl, game.player, start)
+    travel(game, -1)                     # no book: refused, still here
+    assert game.depth == 0 and lvl.actors[start] is game.player
+    game.player.inventory.append(Item(BOOK))
+    try:
+        travel(game, -1)
+    except GameOver as e:
+        assert e.reason == "won"
+    else:
+        assert False, "escaping with the book should win"
+
+
 if __name__ == "__main__":
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 50
     test_effects_preserve_indices()
@@ -75,3 +101,6 @@ if __name__ == "__main__":
     test_beam_zero_direction()
     test_flow_field_distances()
     test_speed_clamps()
+    test_goal_placed_once()
+    test_escape_needs_book()
+    print("all tests ok")

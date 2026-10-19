@@ -1,7 +1,7 @@
 # claude's help implementing https://journal.stuffwithstuff.com/2014/12/21/rooms-and-mazes/
 from collections import deque
-from actors import KOBOLD, RAT, pick_species, place_actor, spawn_at
-from items import BELLS, ITEMS, WANDS, Item
+from actors import KOBOLD, RAT, GameOver, pick_species, place_actor, spawn_at
+from items import BELLS, BOOK, ITEMS, WANDS, Item
 from level import Level
 from terrain import DOOR_CLOSED, FLOOR, STAIRS_DOWN, STAIRS_UP, WALL
 from vec import Rect, Vec
@@ -176,6 +176,23 @@ def place_items(rng, level, depth, count=None):
             break
 
 
+GOAL_DEPTH = 5      # Dlvl 6
+
+def place_goal(rng, level):
+    """Put the Book somewhere away from the up stairs."""
+    rooms = [r for r in level.rooms
+             if level.up_stair not in set(r.cells())] or level.rooms
+    while True:
+        room = rng.choice(rooms)
+        p = Vec(rng.randrange(room.x, room.x + room.w),
+                rng.randrange(room.y, room.y + room.h))
+        if level[p] is FLOOR:
+            level.items.setdefault(p, []).append(Item(BOOK))
+            return p
+
+def carrying_book(actor):
+    return any(it.kind is BOOK for it in actor.inventory)
+
 def gen_rooms_level(rng, w, h, depth):
 
 
@@ -200,6 +217,8 @@ def gen_rooms_level(rng, w, h, depth):
     assert connected(level), "generator produced a disconnected level"
     place_monsters(rng, level, depth, count=None)
     place_items(rng, level, depth)
+    if depth == GOAL_DEPTH:
+        place_goal(rng, level)
     return level
 
 def generate(rng, w, h, depth):
@@ -214,12 +233,15 @@ def travel(game, delta):
     level = game.level
     dest_depth = game.depth + delta
     if dest_depth < 0:
-        game.msgs.add("You can't go up from here.")   # later: escape the dungeon
+        if carrying_book(game.player):
+            raise GameOver("won")
+        game.msgs.add("You won't leave without the Book of the Dead.")
         return
 
     del level.actors[game.player.pos]
     level.turn_order.remove(game.player)
 
+    first_visit = len(game.levels) <= dest_depth
     while len(game.levels) <= dest_depth:
         new_level = generate(game.rng, 80, 21, depth=len(game.levels))
         game.levels.append(new_level)
@@ -229,6 +251,8 @@ def travel(game, delta):
     arrival = new.up_stair if delta > 0 else new.down_stair
     place_actor(new, game.player, arrival)
     game.msgs.add(f"You climb {'down' if delta > 0 else 'up'} the stairs.")
+    if first_visit and dest_depth == GOAL_DEPTH:
+        game.msgs.add("A cold stillness hangs here. The Book is near.")
 
 MAP = """\
 ##############################
