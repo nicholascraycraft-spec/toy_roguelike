@@ -176,7 +176,7 @@ def place_items(rng, level, depth, count=None):
             break
 
 
-GOAL_DEPTH = 5      # Dlvl 6
+GOAL_DEPTH = 5      # 0-based: the Book is on Dlvl GOAL_DEPTH + 1, which is also the bottom
 
 def place_goal(rng, level):
     """Put the Book somewhere away from the up stairs."""

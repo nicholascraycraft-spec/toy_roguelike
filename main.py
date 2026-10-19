@@ -398,7 +398,8 @@ def main(stdscr):
         s_level, start = load(MAP)
         game.levels.append(s_level)
         place_actor(s_level, player, start)
-        game.msgs.add("Find the Book of the Dead on level 6 and carry it back up the stairs.")
+        game.msgs.add(f"Find the Book of the Dead on level {GOAL_DEPTH + 1} "
+                      "and carry it back up the stairs.")
 
         curses.curs_set(0)
         stdscr.keypad(True)
