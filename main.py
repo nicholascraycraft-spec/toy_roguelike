@@ -2,15 +2,14 @@ import argparse
 import curses
 import random
 
-from actors import HUMAN, GameOver, attack, move_actor, place_actor, resists, spawn, spawn_wanderer
+from actors import HUMAN, GameOver, attack, move_actor, place_actor, spawn, spawn_wanderer
 from ai import take_turn
 from dungeon import GOAL_DEPTH, MAP, generate, load, travel
-from items import (BELL_APPEARANCES, BELL_EFFECTS, BELLS, POTION_APPEARANCES, POTION_EFFECTS,
-                   POTIONS, WAND_APPEARANCES, WAND_EFFECTS, WANDS, ItemKind, Wands, a, drop,
-                   identify, pick_up)
-from level import Level, beam_path, compute_fov, dig_path, passable
+from items import (BELL_APPEARANCES, BELLS, POTION_APPEARANCES, POTIONS, WAND_APPEARANCES,
+                   WANDS, ItemKind, a, drop, pick_up, quaff, ring_bell, zap_wand)
+from level import Level, compute_fov, passable
 from render import draw, init_styles
-from terrain import DOOR_CLOSED, DOOR_OPEN, FLOOR, STAIRS_DOWN, STAIRS_UP, WALL, close_door, open_door
+from terrain import DOOR_CLOSED, DOOR_OPEN, STAIRS_DOWN, STAIRS_UP, close_door, open_door
 from vec import Vec
 
 class Messages:
@@ -37,6 +36,7 @@ class Game:
         self.appearance: dict[ItemKind, str] = {}
         self.identified: set[ItemKind] = set()
         self.book_taken = False          # once true, the climb out is hunted
+        self.animate = lambda p: None    # main draws beams; tests leave this quiet
     @property
     def level(self):
         return self.levels[self.depth]
@@ -67,77 +67,6 @@ MOVES = {
 }
 
 
-
-def ring_bell(game, actor, item):
-    game.msgs.add(f"You ring {a(game, item)}.")
-    kind = item.kind
-    if actor.confused and game.rng.random() < 0.5:
-        kind = game.rng.choice(BELLS)       # a fumbled stroke sounds another bell
-        game.msgs.add("Your hand slips, and the bell speaks wrongly.")
-    effect = BELL_EFFECTS.get(kind)
-    if effect is None:
-        game.msgs.add("Nothing happens.")
-        return
-    effect(game, actor, item)
-    if kind is item.kind:
-        identify(game, item.kind)
-
-def quaff(game, actor, item):
-    actor.inventory.remove(item)
-    game.msgs.add(f"You drink {a(game, item)}.")
-    POTION_EFFECTS[item.kind](game, actor, item)
-    identify(game, item.kind)
-
-def do_digging(game, stdscr, actor, item, d):
-    if d == Vec(0, 0):
-        if game.depth >= GOAL_DEPTH:
-            game.msgs.add("The bolt glances off the bedrock.")
-            return
-        game.msgs.add("You dig a hole in the floor.")
-        identify(game, item.kind)
-        travel(game, +1)
-        game.level.flows.clear()
-        return
-
-    dug = 0
-    for p in dig_path(game.level, actor.pos, d):
-        draw(stdscr, game, game.player, overlay={p: ("*", "item")})
-        curses.napms(40)
-        if game.level[p] is WALL:
-            game.level[p] = FLOOR
-            dug += 1
-    game.msgs.add("You dig through the rock." if dug
-                  else "The bolt bores into nothing.")
-    if dug:
-        identify(game, item.kind)
-
-def zap_wand(game, stdscr, actor, item, d):
-    if item.charges <= 0:
-        game.msgs.add("You wrest nothing from it.")
-        return
-    item.charges -= 1
-    game.msgs.add(f"You zap {a(game, item)}.")
-
-    # digging acts on terrain, not on whoever the beam hits
-    if item.kind is Wands.DIGGING:
-        do_digging(game, stdscr, actor, item, d)
-        return
-
-    hit_anything = False
-    for p in beam_path(game.level, actor.pos, d):
-        draw(stdscr, game, game.player, overlay={p: ("*", "item")})
-        curses.napms(40)
-        target = game.level.actors.get(p)
-        if target is None:
-            continue
-        hit_anything = True
-        if not resists(game, target):
-            WAND_EFFECTS[item.kind](game, actor, target)
-            identify(game, item.kind)
-        break
-
-    if not hit_anything:
-        game.msgs.add("The bolt fades.")
 
 #region ACTIONS
 
@@ -269,7 +198,7 @@ def cmd_zap(stdscr, game, player):
     d = get_direction(stdscr, game)
     if d is None:
         return None
-    return lambda: zap_wand(game, stdscr, player, item, d)
+    return lambda: zap_wand(game, player, item, d)
 
 
 def cmd_quaff(stdscr, game, player):
@@ -463,6 +392,11 @@ def main(stdscr, test_map=False, seed=None):
         player = spawn(HUMAN, Vec(0, 0))
         player.given_name = "you"
         game = Game(rng, player)
+
+        def animate(p):
+            draw(stdscr, game, game.player, overlay={p: ("*", "item")})
+            curses.napms(40)
+        game.animate = animate
         shuffle_appearances(game, BELLS, BELL_APPEARANCES)
         shuffle_appearances(game, WANDS, WAND_APPEARANCES)
         shuffle_appearances(game, POTIONS, POTION_APPEARANCES)

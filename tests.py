@@ -4,9 +4,9 @@ import sys
 from actors import (GIANT_ANT, HUMAN, NEWT, RAT, Actor, GameOver, adjust_speed,
                     The, place_actor, spawn, the, to_hit, verb)
 from dungeon import GOAL_DEPTH, MAP, gen_rooms_level, generate, load, travel
-from items import BOOK, POTION_EFFECTS, WAND_EFFECTS, Item, Potions, pick_up
+from items import BOOK, POTION_EFFECTS, WAND_EFFECTS, Item, Potions, pick_up, quaff
 from level import beam_path, flow_field
-from main import Game, quaff
+from main import Game
 from terrain import STAIRS_DOWN, STAIRS_UP
 from vec import Vec
 

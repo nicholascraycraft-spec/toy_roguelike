@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from actors import The, adjust_speed, die, disturb, move_actor, push_from, verb
-from level import compute_fov, free_cells
+from actors import The, adjust_speed, die, disturb, move_actor, push_from, resists, verb
+from level import beam_path, compute_fov, dig_path, free_cells
+from terrain import FLOOR, WALL
 from vec import Vec, chebyshev
 
 def identify(game, kind):
@@ -270,22 +271,26 @@ def heal(actor, amount, max_bonus):
 
 def potion_healing(game, actor, item):
     heal(actor, sum(game.rng.randint(1, 4) for _ in range(6)), 1)
-    game.msgs.add("You feel better.")
+    say(game, actor, "You feel better." if actor is game.player
+        else f"{The(game, actor)} looks better.")
 
 def potion_extra_healing(game, actor, item):
     heal(actor, sum(game.rng.randint(1, 8) for _ in range(6)), 2)
-    game.msgs.add("You feel much better.")
+    say(game, actor, "You feel much better." if actor is game.player
+        else f"{The(game, actor)} looks much better.")
 
 def potion_sleeping(game, actor, item):
     actor.asleep = game.rng.randint(5, 15)
-    game.msgs.add("You suddenly fall asleep.")
+    say(game, actor, f"{The(game, actor)} suddenly {verb(game, actor, 'fall')} asleep.")
 
 def potion_confusion(game, actor, item):
     actor.confused += game.rng.randint(10, 20)
-    game.msgs.add("Huh, what? Where am I?")
+    say(game, actor, "Huh, what? Where am I?" if actor is game.player
+        else f"{The(game, actor)} looks confused.")
 
 def potion_water(game, actor, item):
-    game.msgs.add("This tastes like water.")
+    if actor is game.player:
+        game.msgs.add("This tastes like water.")
 
 class Potions:
     HEALING       = ItemKind("potion of healing",       "!", "item", freq=4, use="quaff")
@@ -314,6 +319,104 @@ ITEMS = WANDS + BELLS + POTIONS
 #region GOAL
 # not in ITEMS, so it never generates at random; placed once on GOAL_DEPTH
 BOOK = ItemKind("the Book of the Dead", "?", "item", weight=50, proper=True)
+# endregion
+
+#region USING ITEMS
+# Shared by the player's commands and monster AI, so messages are written for
+# any actor and only show when the player can see who's acting.
+
+def seen(game, actor):
+    player = game.player
+    if actor is player:
+        return True
+    return player.asleep <= 0 and actor.pos in compute_fov(game.level, player.pos)
+
+def say(game, actor, text):
+    if seen(game, actor):
+        game.msgs.add(text)
+
+def learn(game, actor, kind):
+    """You only learn what an item is by watching it used."""
+    if seen(game, actor):
+        identify(game, kind)
+
+def possessive(game, actor):
+    return "Your" if actor is game.player else f"{The(game, actor)}'s"
+
+def ring_bell(game, actor, item):
+    say(game, actor, f"{The(game, actor)} {verb(game, actor, 'ring')} {a(game, item)}.")
+    kind = item.kind
+    if actor.confused and game.rng.random() < 0.5:
+        kind = game.rng.choice(BELLS)       # a fumbled stroke sounds another bell
+        say(game, actor, f"{possessive(game, actor)} hand slips, and the bell speaks wrongly.")
+    effect = BELL_EFFECTS.get(kind)
+    if effect is None:
+        game.msgs.add("Nothing happens.")
+        return
+    effect(game, actor, item)
+    if kind is item.kind:
+        learn(game, actor, item.kind)
+
+def quaff(game, actor, item):
+    actor.inventory.remove(item)
+    say(game, actor, f"{The(game, actor)} {verb(game, actor, 'drink')} {a(game, item)}.")
+    POTION_EFFECTS[item.kind](game, actor, item)
+    learn(game, actor, item.kind)
+
+def do_digging(game, actor, item, d):
+    from dungeon import GOAL_DEPTH, travel   # dungeon imports items
+    if d == Vec(0, 0):
+        if actor is not game.player:
+            return                          # only the player falls through holes
+        if game.depth >= GOAL_DEPTH:
+            game.msgs.add("The bolt glances off the bedrock.")
+            return
+        game.msgs.add("You dig a hole in the floor.")
+        identify(game, item.kind)
+        travel(game, +1)
+        game.level.flows.clear()
+        return
+
+    dug = 0
+    for p in dig_path(game.level, actor.pos, d):
+        game.animate(p)
+        if game.level[p] is WALL:
+            game.level[p] = FLOOR
+            dug += 1
+    if dug:
+        game.level.flows.clear()
+    say(game, actor, "The bolt digs through the rock." if dug
+        else "The bolt bores into nothing.")
+    if dug:
+        learn(game, actor, item.kind)
+
+def zap_wand(game, actor, item, d):
+    if item.charges <= 0:
+        say(game, actor, "You wrest nothing from it." if actor is game.player
+            else f"{The(game, actor)} shakes {a(game, item)}, but nothing comes out.")
+        return
+    item.charges -= 1
+    say(game, actor, f"{The(game, actor)} {verb(game, actor, 'zap')} {a(game, item)}.")
+
+    # digging acts on terrain, not on whoever the beam hits
+    if item.kind is Wands.DIGGING:
+        do_digging(game, actor, item, d)
+        return
+
+    hit_anything = False
+    for p in beam_path(game.level, actor.pos, d):
+        game.animate(p)
+        target = game.level.actors.get(p)
+        if target is None:
+            continue
+        hit_anything = True
+        if not resists(game, target):
+            WAND_EFFECTS[item.kind](game, actor, target)
+            learn(game, actor, item.kind)
+        break
+
+    if not hit_anything:
+        say(game, actor, "The bolt fades.")
 # endregion
 
 def item_name(game, item):
