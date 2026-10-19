@@ -1,8 +1,5 @@
 import argparse
 import curses
-from dataclasses import dataclass, field
-
-import math
 import random
 
 from actors import HUMAN, GameOver, attack, move_actor, place_actor, resists, spawn, spawn_wanderer
@@ -121,7 +118,7 @@ def zap_wand(game, stdscr, actor, item, d):
     item.charges -= 1
     game.msgs.add(f"You zap {a(game, item)}.")
 
-    # exceptional code for wants that dont act on agents
+    # digging acts on terrain, not on whoever the beam hits
     if item.kind is Wands.DIGGING:
         do_digging(game, stdscr, actor, item, d)
         return
@@ -305,7 +302,7 @@ def describe(game, p):
         terrain = level[p]
         stack = level.items.get(p, ())
         prefix = "You see "
-        if actor := level.actors.get(p):
+        if (actor := level.actors.get(p)) and actor is not player:
             parts.append(
                 actor.name + (" (asleep)" if actor.asleep else "")
             )
@@ -433,7 +430,6 @@ def main(stdscr, test_map=False, seed=None):
         if seed is None:
             seed = random.randrange(2**32)
         rng = random.Random(seed)
-        # player = Actor(Vec(0, 0), "@", given_name="you", species=HUMAN)
         player = spawn(HUMAN, Vec(0, 0))
         player.given_name = "you"
         game = Game(rng, player)
@@ -453,7 +449,6 @@ def main(stdscr, test_map=False, seed=None):
 
         curses.curs_set(0)
         stdscr.keypad(True)
-        # h, w = stdscr.getmaxyx()
 
         while True: 
             
