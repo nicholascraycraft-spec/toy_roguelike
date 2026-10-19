@@ -385,7 +385,9 @@ def get_action(stdscr, game, player):
         return None
     if cmd := COMMANDS.get(key):
         return cmd(stdscr, game, player)
-    if d := MOVES.get(key):
+    if (d := MOVES.get(key)) is not None:
+        if d == Vec(0, 0):               # 's' rests rather than hitting yourself
+            return cmd_wait(stdscr, game, player)
         return cmd_move(stdscr, game, player, d)
     game.msgs.add("Unknown command. Press ? for help.")
     return None
