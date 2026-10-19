@@ -3,10 +3,11 @@ from dataclasses import dataclass, field
 
 import math
 import random
+import sys
 
 from actors import HUMAN, GameOver, attack, move_actor, place_actor, resists, spawn, spawn_wanderer
 from ai import take_turn
-from dungeon import GOAL_DEPTH, MAP, load, travel
+from dungeon import GOAL_DEPTH, MAP, generate, load, travel
 from items import BELL_APPEARANCES, BELL_EFFECTS, BELLS, WAND_APPEARANCES, WAND_EFFECTS, WANDS, ItemKind, Wands, a, drop, identify, pick_up
 from level import Level, beam_path, compute_fov, dig_path, passable
 from render import draw, init_styles
@@ -382,7 +383,7 @@ def regenerate(game):
     if game.turn % interval == 0:
         p.hp += 1
 
-def main(stdscr):
+def main(stdscr, test_map=False):
 
     try:
         init_styles()
@@ -395,7 +396,11 @@ def main(stdscr):
         shuffle_appearances(game, BELLS, BELL_APPEARANCES)
         shuffle_appearances(game, WANDS, WAND_APPEARANCES)
 
-        s_level, start = load(MAP)
+        if test_map:                     # hand-made sandbox with every item
+            s_level, start = load(MAP)
+        else:
+            s_level = generate(rng, 80, 21, depth=0)
+            start = s_level.up_stair     # where you'll escape with the Book
         game.levels.append(s_level)
         place_actor(s_level, player, start)
         game.msgs.add(f"Find the Book of the Dead on level {GOAL_DEPTH + 1} "
@@ -463,4 +468,4 @@ def main(stdscr):
 
 
 if __name__ == "__main__":
-    curses.wrapper(main)
+    curses.wrapper(main, test_map="--test" in sys.argv)

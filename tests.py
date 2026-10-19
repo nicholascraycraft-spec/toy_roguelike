@@ -2,11 +2,11 @@ import random
 import sys
 
 from actors import HUMAN, RAT, Actor, GameOver, adjust_speed, place_actor
-from dungeon import GOAL_DEPTH, MAP, gen_rooms_level, load, travel
+from dungeon import GOAL_DEPTH, MAP, gen_rooms_level, generate, load, travel
 from items import BOOK, WAND_EFFECTS, Item
 from level import beam_path, flow_field
 from main import Game
-from terrain import STAIRS_DOWN
+from terrain import STAIRS_DOWN, STAIRS_UP
 from vec import Vec
 
 def test_effects_preserve_indices():
@@ -85,6 +85,12 @@ def test_goal_floor_is_bottom(trials=20):
         assert not any(lvl[Vec(x, y)] is STAIRS_DOWN
                        for y in range(lvl.h) for x in range(lvl.w))
 
+def test_first_floor_has_exit(trials=20):
+    for seed in range(trials):
+        lvl = generate(random.Random(seed), 80, 21, depth=0)
+        assert lvl[lvl.up_stair] is STAIRS_UP, f"seed {seed}: no way out"
+        assert lvl.up_stair not in lvl.actors, f"seed {seed}: start occupied"
+
 def test_escape_needs_book():
     lvl, start = load(MAP)
     game = Game(random.Random(0), Actor(Vec(0,0), "@", given_name="you", species=HUMAN))
@@ -112,4 +118,5 @@ if __name__ == "__main__":
     test_goal_placed_once()
     test_escape_needs_book()
     test_goal_floor_is_bottom()
+    test_first_floor_has_exit()
     print("all tests ok")
