@@ -1,9 +1,9 @@
+import argparse
 import curses
 from dataclasses import dataclass, field
 
 import math
 import random
-import sys
 
 from actors import HUMAN, GameOver, attack, move_actor, place_actor, resists, spawn, spawn_wanderer
 from ai import take_turn
@@ -383,11 +383,12 @@ def regenerate(game):
     if game.turn % interval == 0:
         p.hp += 1
 
-def main(stdscr, test_map=False):
+def main(stdscr, test_map=False, seed=None):
 
     try:
         init_styles()
-        seed = 0
+        if seed is None:
+            seed = random.randrange(2**32)
         rng = random.Random(seed)
         # player = Actor(Vec(0, 0), "@", given_name="you", species=HUMAN)
         player = spawn(HUMAN, Vec(0, 0))
@@ -463,9 +464,16 @@ def main(stdscr, test_map=False):
                           f"in {game.turn} turns!")
         else:
             game.msgs.add("You die...")
+        game.msgs.add(f"(seed {seed})")
         draw(stdscr, game, player)
         stdscr.getch()
 
 
 if __name__ == "__main__":
-    curses.wrapper(main, test_map="--test" in sys.argv)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--test", action="store_true",
+                        help="start on the hand-made sandbox map")
+    parser.add_argument("--seed", type=int,
+                        help="replay a dungeon (default: random)")
+    args = parser.parse_args()
+    curses.wrapper(main, test_map=args.test, seed=args.seed)
