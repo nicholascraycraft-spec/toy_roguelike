@@ -1,17 +1,25 @@
 import random
-from level import *
 import sys
+
+from actors import HUMAN, RAT, Actor, GameOver, adjust_speed, place_actor
+from dungeon import MAP, gen_rooms_level, load
+from items import WAND_EFFECTS
+from level import beam_path, flow_field
+from main import Game
+from vec import Vec
 
 def test_effects_preserve_indices():
     """No effect may leave actors and turn_order disagreeing."""
     for kind, effect in WAND_EFFECTS.items():
+        if effect is None:               # digging acts on terrain, not actors
+            continue
         lvl, start = load(MAP)
         game = Game(random.Random(0), Actor(Vec(0,0), "@", given_name="you", species=HUMAN))
         game.levels.append(lvl)
         place_actor(lvl, game.player, start)
         victim = next(a for a in lvl.turn_order if a is not game.player)
         try:
-            effect(game, victim)
+            effect(game, game.player, victim)
         except GameOver:
             pass
         for a in lvl.turn_order:
@@ -61,6 +69,7 @@ def test_speed_clamps():
 
 if __name__ == "__main__":
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 50
+    test_effects_preserve_indices()
     test_generation(n)
     test_beam_stops_at_walls()
     test_beam_zero_direction()
