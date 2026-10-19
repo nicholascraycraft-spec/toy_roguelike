@@ -4,9 +4,9 @@ import sys
 from actors import (GIANT_ANT, HUMAN, NEWT, RAT, Actor, GameOver, adjust_speed,
                     place_actor, spawn, to_hit)
 from dungeon import GOAL_DEPTH, MAP, gen_rooms_level, generate, load, travel
-from items import BOOK, WAND_EFFECTS, Item, pick_up
+from items import BOOK, POTION_EFFECTS, WAND_EFFECTS, Item, Potions, pick_up
 from level import beam_path, flow_field
-from main import Game
+from main import Game, quaff
 from terrain import STAIRS_DOWN, STAIRS_UP
 from vec import Vec
 
@@ -113,6 +113,24 @@ def test_book_rouses_floor():
     for m in monsters:
         assert not m.asleep and m.target_pos == start, f"{m.name} didn't wake"
 
+def test_potions():
+    game = Game(random.Random(0), spawn(HUMAN, Vec(0, 0)))
+    p = game.player
+    for kind in POTION_EFFECTS:          # every potion drinks without error
+        p.inventory.append(Item(kind))
+        quaff(game, p, p.inventory[-1])
+        assert kind in game.identified and not p.inventory
+    p.hp = 1
+    p.inventory.append(Item(Potions.HEALING))
+    quaff(game, p, p.inventory[0])
+    assert p.hp > 1
+    full = p.max_hp
+    p.hp = full
+    p.inventory.append(Item(Potions.HEALING))
+    quaff(game, p, p.inventory[0])
+    assert p.max_hp == full + 1 and p.hp == p.max_hp
+    assert p.confused > 0               # from the confusion potion above
+
 def test_escape_needs_book():
     lvl, start = load(MAP)
     game = Game(random.Random(0), Actor(Vec(0,0), "@", given_name="you", species=HUMAN))
@@ -143,4 +161,5 @@ if __name__ == "__main__":
     test_first_floor_has_exit()
     test_lower_ac_is_harder_to_hit()
     test_book_rouses_floor()
+    test_potions()
     print("all tests ok")

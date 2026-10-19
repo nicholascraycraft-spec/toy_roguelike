@@ -18,6 +18,7 @@ class ItemKind:
     appearances: tuple = ()
     proper: bool = False
     use: str = ""
+    freq: int = 1                # relative chance of generating
 
 @dataclass
 class Item:
@@ -256,7 +257,57 @@ WAND_EFFECTS = {
     Wands.NOTHING:   wand_nothing,
     Wands.DIGGING:   None,            # handled in zap_wand; acts on the path
 }
-ITEMS = WANDS + BELLS
+# endregion
+
+#region POTIONS
+
+def heal(actor, amount, max_bonus):
+    """Restore HP; overflow past full raises max HP a little."""
+    if actor.hp + amount > actor.max_hp:
+        actor.hp_gained += max_bonus
+    actor.hp = min(actor.max_hp, actor.hp + amount)
+
+def potion_healing(game, actor, item):
+    heal(actor, sum(game.rng.randint(1, 4) for _ in range(6)), 1)
+    game.msgs.add("You feel better.")
+
+def potion_extra_healing(game, actor, item):
+    heal(actor, sum(game.rng.randint(1, 8) for _ in range(6)), 2)
+    game.msgs.add("You feel much better.")
+
+def potion_sleeping(game, actor, item):
+    actor.asleep = game.rng.randint(5, 15)
+    game.msgs.add("You suddenly fall asleep.")
+
+def potion_confusion(game, actor, item):
+    actor.confused += game.rng.randint(10, 20)
+    game.msgs.add("Huh, what? Where am I?")
+
+def potion_water(game, actor, item):
+    game.msgs.add("This tastes like water.")
+
+class Potions:
+    HEALING       = ItemKind("potion of healing",       "!", "item", freq=4, use="quaff")
+    EXTRA_HEALING = ItemKind("potion of extra healing", "!", "item", freq=2, use="quaff")
+    SLEEPING      = ItemKind("potion of sleeping",      "!", "item", use="quaff")
+    CONFUSION     = ItemKind("potion of confusion",     "!", "item", use="quaff")
+    WATER         = ItemKind("potion of water",         "!", "item", use="quaff")
+POTIONS = [v for v in vars(Potions).values() if isinstance(v, ItemKind)]
+
+POTION_APPEARANCES = [
+    "murky potion", "fizzing potion", "milky potion", "smoky potion",
+    "cloudy potion", "bubbly potion", "oily potion", "ruby potion",
+]
+
+POTION_EFFECTS = {
+    Potions.HEALING:       potion_healing,
+    Potions.EXTRA_HEALING: potion_extra_healing,
+    Potions.SLEEPING:      potion_sleeping,
+    Potions.CONFUSION:     potion_confusion,
+    Potions.WATER:         potion_water,
+}
+
+ITEMS = WANDS + BELLS + POTIONS
 # endregion
 
 #region GOAL

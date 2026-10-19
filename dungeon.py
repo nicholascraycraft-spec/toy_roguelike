@@ -1,7 +1,7 @@
 # claude's help implementing https://journal.stuffwithstuff.com/2014/12/21/rooms-and-mazes/
 from collections import deque
 from actors import KOBOLD, RAT, GameOver, pick_species, place_actor, spawn_at
-from items import BELLS, BOOK, ITEMS, WANDS, Item
+from items import BELLS, BOOK, ITEMS, POTIONS, WANDS, Item
 from level import Level
 from terrain import DOOR_CLOSED, FLOOR, STAIRS_DOWN, STAIRS_UP, WALL
 from vec import Rect, Vec
@@ -172,7 +172,8 @@ def place_items(rng, level, depth, count=None):
                     rng.randrange(room.y, room.y + room.h))
             if p in level.items or not level[p].walkable:
                 continue
-            level.items[p] = [Item(rng.choice(ITEMS))]
+            kind = rng.choices(ITEMS, weights=[k.freq for k in ITEMS])[0]
+            level.items[p] = [Item(kind)]
             break
 
 
@@ -266,7 +267,7 @@ MAP = """\
 #........###....@>...<.......#
 #........###..)))))))........#
 #.##########################.#
-#............................#
+#.........!!!!!..............#
 ##############################"""
 def load(text):
     rows = text.splitlines()
@@ -275,6 +276,7 @@ def load(text):
     player_start = None
     bell_index = 0
     wand_index = 0
+    potion_index = 0
     for y, row in enumerate(rows):
         for x, ch in enumerate(row):
             p = Vec(x, y)
@@ -295,6 +297,9 @@ def load(text):
             elif ch == "/":
                 level.items[p] = [Item(WANDS[wand_index % len(WANDS)])]
                 wand_index += 1
+            elif ch == "!":
+                level.items[p] = [Item(POTIONS[potion_index % len(POTIONS)])]
+                potion_index += 1
             elif ch == "<":
                 level.up_stair = p
             elif ch == ">":

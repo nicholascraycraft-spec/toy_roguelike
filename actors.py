@@ -127,6 +127,7 @@ class Actor:
     asleep: bool = 0
     frozen: bool = 0
     deafness: int = 0
+    confused: int = 0
     speed_mod: int = 0
 
     @property

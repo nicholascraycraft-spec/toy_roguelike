@@ -74,7 +74,8 @@ def show_messages(stdscr, msgs, w):
 def show_status(stdscr, game, w):
     p = game.player
     line = (f"HP:{p.hp}({p.max_hp})  Dlvl:{game.depth + 1}  "
-        f"Xp:{p.xp_level}/{p.xp}  T:{game.turn}")
+        f"Xp:{p.xp_level}/{p.xp}  T:{game.turn}"
+        + ("  Conf" if p.confused else ""))
     h, _ = stdscr.getmaxyx()
     stdscr.addstr(h - 1, 0, line[:w - 1].ljust(w - 1))
 

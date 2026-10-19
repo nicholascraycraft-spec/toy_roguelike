@@ -8,7 +8,9 @@ import random
 from actors import HUMAN, GameOver, attack, move_actor, place_actor, resists, spawn, spawn_wanderer
 from ai import take_turn
 from dungeon import GOAL_DEPTH, MAP, generate, load, travel
-from items import BELL_APPEARANCES, BELL_EFFECTS, BELLS, WAND_APPEARANCES, WAND_EFFECTS, WANDS, ItemKind, Wands, a, drop, identify, pick_up
+from items import (BELL_APPEARANCES, BELL_EFFECTS, BELLS, POTION_APPEARANCES, POTION_EFFECTS,
+                   POTIONS, WAND_APPEARANCES, WAND_EFFECTS, WANDS, ItemKind, Wands, a, drop,
+                   identify, pick_up)
 from level import Level, beam_path, compute_fov, dig_path, passable
 from render import draw, init_styles
 from terrain import DOOR_CLOSED, DOOR_OPEN, FLOOR, STAIRS_DOWN, STAIRS_UP, WALL, close_door, open_door
@@ -70,13 +72,23 @@ MOVES = {
 
 
 def ring_bell(game, actor, item):
-    # TODO: ringing while confused should mis-sound the bell
     game.msgs.add(f"You ring {a(game, item)}.")
-    effect = BELL_EFFECTS.get(item.kind)
+    kind = item.kind
+    if actor.confused and game.rng.random() < 0.5:
+        kind = game.rng.choice(BELLS)       # a fumbled stroke sounds another bell
+        game.msgs.add("Your hand slips, and the bell speaks wrongly.")
+    effect = BELL_EFFECTS.get(kind)
     if effect is None:
         game.msgs.add("Nothing happens.")
         return
     effect(game, actor, item)
+    if kind is item.kind:
+        identify(game, item.kind)
+
+def quaff(game, actor, item):
+    actor.inventory.remove(item)
+    game.msgs.add(f"You drink {a(game, item)}.")
+    POTION_EFFECTS[item.kind](game, actor, item)
     identify(game, item.kind)
 
 def do_digging(game, stdscr, actor, item, d):
@@ -205,6 +217,12 @@ def cmd_close(stdscr, game, player):
 
 def cmd_move(stdscr, game, player, d):
     level = game.level
+    if player.confused and game.rng.random() < 0.6:
+        d = game.rng.choice(list(Vec(0, 0).neighbors()))
+        dest = player.pos + d
+        if not passable(level, dest) and dest not in level.actors \
+                and level[dest] is not DOOR_CLOSED:
+            return lambda: game.msgs.add("You stumble.")
     dest = player.pos + d
     if target := level.actors.get(dest):
         return lambda: attack(game, player, target)
@@ -241,6 +259,16 @@ def cmd_apply(stdscr, game, player):
         return lambda: zap_wand(game, stdscr, player, item, d)
     game.msgs.add("You can't apply that.")
     return None
+
+
+def cmd_quaff(stdscr, game, player):
+    item = choose_item(stdscr, game, player, "What do you want to drink?")
+    if item is None:
+        return None
+    if item.kind.use != "quaff":
+        game.msgs.add("That's a silly thing to drink.")
+        return None
+    return lambda: quaff(game, player, item)
 
 
 def cmd_descend(stdscr, game, player):
@@ -307,7 +335,8 @@ COMMANDS = {
     ord('a'): cmd_apply,
     ord('o'): cmd_open,
     ord('c'): cmd_close,
-    ord('q'): cmd_quit,
+    ord('q'): cmd_quaff,
+    ord('Q'): cmd_quit,
     ord(';'): cmd_look,
     ord(':'): cmd_look_down,
 }
@@ -397,6 +426,7 @@ def main(stdscr, test_map=False, seed=None):
         game = Game(rng, player)
         shuffle_appearances(game, BELLS, BELL_APPEARANCES)
         shuffle_appearances(game, WANDS, WAND_APPEARANCES)
+        shuffle_appearances(game, POTIONS, POTION_APPEARANCES)
 
         if test_map:                     # hand-made sandbox with every item
             s_level, start = load(MAP)
@@ -436,6 +466,10 @@ def main(stdscr, test_map=False, seed=None):
                     if action := get_action(stdscr, game, player):
                         action()
                         player.energy -= 12
+                        if player.confused:
+                            player.confused -= 1
+                            if not player.confused:
+                                game.msgs.add("You feel less confused now.")
                 
             # everyone else's turn
             level = game.level # refresh for player changed floor case
