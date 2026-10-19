@@ -1,14 +1,14 @@
 import random
 import sys
 
-from actors import (GIANT_ANT, HUMAN, KOBOLD, NEWT, RAT, Actor, GameOver, adjust_speed,
+from actors import (attack, GIANT_ANT, HUMAN, KOBOLD, NEWT, RAT, Actor, GameOver, adjust_speed,
                     The, place_actor, spawn, spawn_at, the, to_hit, verb)
 from dungeon import GOAL_DEPTH, MAP, gen_rooms_level, generate, load, travel
 from items import BOOK, CLASSES, ITEMS, POTIONS, WANDS, Item, Potions, pick_up, quaff
 from level import beam_path, compute_fov, flow_field
 from main import Game
 import pray
-from ai import use_item
+from ai import take_turn, use_item
 import items
 from terrain import STAIRS_DOWN, STAIRS_UP, WALL
 from vec import Vec
@@ -228,13 +228,38 @@ def test_called_names_show():
 def test_registry():
     assert len(ITEMS) == len(set(ITEMS)) == sum(len(c.kinds) for c in CLASSES)
     for c in CLASSES:
-        assert len(c.appearances) >= len(c.kinds), f"{c.name}: too few appearances"
+        if c.appearances:                # empty pool: always known by name
+            assert len(c.appearances) >= len(c.kinds), f"{c.name}: too few appearances"
         for kind in c.kinds:
-            special = kind is items.Wands.DIGGING
+            special = kind is items.Wands.DIGGING or kind.use == "wield"
             assert (kind.effect is None) == special, f"{kind.name}: effect missing"
     lvl, _ = load(MAP)                   # the sandbox lays out every bell, wand, potion
     on_map = {it.kind for stack in lvl.items.values() for it in stack}
     assert set(ITEMS) <= on_map, set(ITEMS) - on_map
+
+def test_weapons():
+    game, kobold = monster_scene()
+    p = game.player
+    sword = Item(items.Weapons.LONG_SWORD)
+    p.inventory.append(sword)
+    items.wield(game, p, sword)
+    assert items.label(game, p, sword) == "a long sword (weapon in hand)"
+    kobold.hp = 1000
+    game.rng = random.Random(3)
+    for _ in range(40):
+        attack(game, p, kobold)
+    dealt = 1000 - kobold.hp
+    assert dealt > 0
+    items.drop(game, p, sword)           # dropping it frees your hands
+    assert p.wielded is None
+
+def test_monsters_wield_better_weapons():
+    game, kobold = monster_scene()
+    kobold.inventory += [Item(items.Weapons.DAGGER), Item(items.Weapons.MACE)]
+    take_turn(game, kobold)              # spends its turn arming itself
+    assert kobold.wielded.kind is items.Weapons.MACE
+    take_turn(game, kobold)
+    assert kobold.wielded.kind is items.Weapons.MACE
 
 def test_escape_needs_book():
     lvl, start = load(MAP)
@@ -276,4 +301,6 @@ if __name__ == "__main__":
     test_prayer_mood_fades()
     test_called_names_show()
     test_registry()
+    test_weapons()
+    test_monsters_wield_better_weapons()
     print("all tests ok")

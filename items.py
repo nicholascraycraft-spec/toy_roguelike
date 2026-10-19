@@ -23,6 +23,7 @@ class ItemKind:
     # what using it does: (game, actor, item) for bells and potions,
     # (game, actor, target) for wands; None if handled specially
     effect: object = field(default=None, compare=False, repr=False)
+    damage: tuple = ()           # weapons: (dice, sides, bonus)
 
 @dataclass
 class Item:
@@ -287,6 +288,46 @@ POTION_APPEARANCES = [
 
 # endregion
 
+#region WEAPONS
+class Weapons:
+    DAGGER      = ItemKind("dagger",      ")", "item", weight=10, freq=3, use="wield", damage=(1, 4, 0))
+    CLUB        = ItemKind("club",        ")", "item", weight=30, freq=2, use="wield", damage=(1, 6, 0))
+    SHORT_SWORD = ItemKind("short sword", ")", "item", weight=30, freq=2, use="wield", damage=(1, 6, 0))
+    MACE        = ItemKind("mace",        ")", "item", weight=30, freq=2, use="wield", damage=(1, 6, 1))
+    LONG_SWORD  = ItemKind("long sword",  ")", "item", weight=40, freq=1, use="wield", damage=(1, 8, 0))
+WEAPONS = [v for v in vars(Weapons).values() if isinstance(v, ItemKind)]
+
+def weapon_value(item):
+    """Average damage, for monsters choosing what to wield."""
+    if item is None:
+        return 0
+    dice, sides, bonus = item.kind.damage
+    return dice * (sides + 1) / 2 + bonus
+
+def best_weapon(actor):
+    weapons = [it for it in actor.inventory if it.kind.use == "wield"]
+    return max(weapons, key=weapon_value, default=None)
+
+def wield(game, actor, item):
+    actor.wielded = item
+    if item is None:
+        say(game, actor, "You are empty handed.")
+    else:
+        say(game, actor, f"{The(game, actor)} {verb(game, actor, 'wield')} {a(game, item)}.")
+
+def arm(rng, actor):
+    """Some monsters with hands start out carrying a weapon."""
+    if actor.species.hands and rng.random() < 0.4:
+        kind = rng.choices(WEAPONS, weights=[k.freq for k in WEAPONS])[0]
+        actor.inventory.append(Item(kind))
+        actor.wielded = actor.inventory[-1]
+    return actor
+
+def label(game, actor, item):
+    """How an item reads in the actor's inventory menus."""
+    return a(game, item) + (" (weapon in hand)" if actor.wielded is item else "")
+# endregion
+
 #region REGISTRY
 @dataclass(frozen=True)
 class ItemClass:
@@ -297,9 +338,10 @@ class ItemClass:
     map_char: str = ""          # stands for this class on the --test map
 
 CLASSES = [
-    ItemClass("bell",   BELLS,   BELL_APPEARANCES,   map_char=")"),
+    ItemClass("bell",   BELLS,   BELL_APPEARANCES,   map_char="("),
     ItemClass("wand",   WANDS,   WAND_APPEARANCES,   map_char="/"),
     ItemClass("potion", POTIONS, POTION_APPEARANCES, map_char="!"),
+    ItemClass("weapon", WEAPONS,                     map_char=")"),
 ]
 ITEMS = [k for c in CLASSES for k in c.kinds]
 # endregion
@@ -447,6 +489,8 @@ def rouse_dungeon(game):
 def drop(game, actor, item):
     level = game.level
     actor.inventory.remove(item)
+    if actor.wielded is item:
+        actor.wielded = None
     level.items.setdefault(actor.pos, []).append(item)
     if actor is game.player:
         game.msgs.add(f"You drop {a(game, item)}.")

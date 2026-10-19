@@ -5,7 +5,8 @@ import random
 from actors import HUMAN, GameOver, attack, move_actor, place_actor, spawn, spawn_wanderer
 from ai import take_turn
 from dungeon import GOAL_DEPTH, MAP, generate, load, travel
-from items import CLASSES, ItemKind, a, drop, pick_up, quaff, ring_bell, zap_wand
+from items import (CLASSES, Item, ItemKind, Weapons, a, arm, drop, label, pick_up, quaff,
+                   ring_bell, wield, zap_wand)
 from level import Level, compute_fov, passable
 import pray
 from render import draw, init_styles
@@ -93,7 +94,7 @@ def choose_item(stdscr, game, player, title, use=None, verb=None):
     if not items:
         game.msgs.add(f"You don't have anything to {verb}.")
         return None
-    return show_menu(stdscr, title, [(a(game, it), it) for it in items])
+    return show_menu(stdscr, title, [(label(game, player, it), it) for it in items])
 
 def cmd_quit(stdscr, game, player):
     raise GameOver("quit")
@@ -115,7 +116,7 @@ def cmd_inventory(stdscr, game, player):
         game.msgs.add("You aren't carrying anything.")
         return None
     show_menu(stdscr, "Inventory:",
-            [(a(game, it), it) for it in player.inventory])
+            [(label(game, player, it), it) for it in player.inventory])
     return None                      # looking is free
 
 
@@ -205,6 +206,23 @@ def cmd_zap(stdscr, game, player):
     return lambda: zap_wand(game, player, item, d)
 
 
+BARE_HANDS = object()                    # menu choice meaning "wield nothing"
+
+def cmd_wield(stdscr, game, player):
+    weapons = [it for it in player.inventory if it.kind.use == "wield"]
+    entries = [(label(game, player, it), it) for it in weapons]
+    entries.append(("- your bare hands", BARE_HANDS))
+    choice = show_menu(stdscr, "What do you want to wield?", entries)
+    if choice is None:
+        return None
+    item = None if choice is BARE_HANDS else choice
+    if item is player.wielded:
+        game.msgs.add("You are already empty handed." if item is None
+                      else "You are already wielding that!")
+        return None
+    return lambda: wield(game, player, item)
+
+
 def cmd_quaff(stdscr, game, player):
     item = choose_item(stdscr, game, player, "What do you want to drink?",
                        use="quaff", verb="drink")
@@ -278,6 +296,7 @@ Inventory   i
 Apply       a  use a tool (ring a bell)
 Zap         z  zap a wand, then pick a direction
 Quaff       q  drink a potion
+Wield       w  wield a weapon (or your bare hands)
 Doors       o  open      c  close   (walking into a door opens it)
 Look        ;  move a cursor around    :  look here
 Extended    #  then a command name; any unique prefix works
@@ -358,6 +377,7 @@ EXTENDED = {
     "call":  cmd_call,
     "pray":  cmd_pray,
     "quaff": cmd_quaff,
+    "wield": cmd_wield,
     "zap":   cmd_zap,
     "?": cmd_extended_list,
 }
@@ -384,6 +404,7 @@ COMMANDS = {
     ord('c'): cmd_close,
     ord('q'): cmd_quaff,
     ord('z'): cmd_zap,
+    ord('w'): cmd_wield,
     ord('Q'): cmd_quit,
     ord(';'): cmd_look,
     ord(':'): cmd_look_down,
@@ -474,6 +495,8 @@ def main(stdscr, test_map=False, seed=None):
         rng = random.Random(seed)
         player = spawn(HUMAN, Vec(0, 0))
         player.given_name = "you"
+        player.inventory.append(Item(Weapons.DAGGER))
+        player.wielded = player.inventory[-1]
         game = Game(rng, player)
 
         def animate(p):
@@ -545,7 +568,8 @@ def main(stdscr, test_map=False, seed=None):
             if game.book_taken:
                 odds //= 3
             if rng.randint(1, odds) == 1:
-                spawn_wanderer(game)
+                if wanderer := spawn_wanderer(game):
+                    arm(rng, wanderer)
             regenerate(game) #regen between turns
             pray.tick(game)
 

@@ -36,6 +36,7 @@ Press `?` in the game for this list.
 | `a` | use or apply a tool (ring a bell) |
 | `z` | zap a wand, then choose a direction |
 | `q` | quaff a potion |
+| `w` | wield a weapon, or `-` for bare hands |
 | `o` `c` | open / close a door |
 | `;` `:` | look around with a cursor / look here |
 | `#pray` | ask the Charter for help; it won't answer if you ask too often |
@@ -46,6 +47,10 @@ Press `?` in the game for this list.
 | `Q` | quit |
 
 ## Items
+
+You start with a dagger. Weapons (daggers, clubs, short swords, maces, long
+swords) are always known by their real names, and monsters with hands may
+carry one or pick one up and wield it.
 
 Bells, wands and potions start under random appearances ("verdigris bell",
 "oak wand", "murky potion") and are identified once their effect is seen.

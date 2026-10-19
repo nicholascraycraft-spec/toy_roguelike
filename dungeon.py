@@ -1,7 +1,7 @@
 # claude's help implementing https://journal.stuffwithstuff.com/2014/12/21/rooms-and-mazes/
 from collections import deque
 from actors import KOBOLD, RAT, GameOver, pick_species, place_actor, spawn_at
-from items import BOOK, CLASSES, ITEMS, Item
+from items import BOOK, CLASSES, ITEMS, Item, arm
 from level import Level
 from terrain import DOOR_CLOSED, FLOOR, STAIRS_DOWN, STAIRS_UP, WALL
 from vec import Rect, Vec
@@ -158,7 +158,7 @@ def place_monsters(rng, level, depth, count=None):
                 continue
             if not level[p].walkable:
                 continue
-            spawn_at(level, pick_species(rng, depth), p)
+            arm(rng, spawn_at(level, pick_species(rng, depth), p))
             if rng.random() < 0.6:
                 level.actors[p].asleep = rng.randint(50, 200)
             break
@@ -265,9 +265,9 @@ MAP = """\
 #........###./////////.......#
 #.rrk....+...................#
 #........###....@>...<.......#
-#........###..)))))))........#
+#........###..(((((((........#
 #.##########################.#
-#.........!!!!!..............#
+#.........!!!!!...)))))......#
 ##############################"""
 def load(text):
     rows = text.splitlines()

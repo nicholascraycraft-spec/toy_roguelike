@@ -128,6 +128,7 @@ class Actor:
     frozen: bool = 0
     deafness: int = 0
     confused: int = 0
+    wielded: object = None              # an Item from inventory, or bare hands
     speed_mod: int = 0
 
     @property
@@ -184,6 +185,7 @@ def die(game, killer, target):
     for item in target.inventory:
         level.items.setdefault(target.pos, []).append(item)
     target.inventory.clear()
+    target.wielded = None
 
     if target is not game.player:        # the player's death is announced by main
         game.msgs.add(f"{The(game, target)} dies.")
@@ -216,6 +218,11 @@ def attack(game, actor, target):
                           f"{the(game, target)}.")
             continue
         dmg = sum(rng.randint(1, sides) for _ in range(dice))
+        if ak_name == "hit" and actor.wielded is not None:
+            w_dice, w_sides, w_bonus = actor.wielded.kind.damage
+            weapon = sum(rng.randint(1, w_sides) for _ in range(w_dice)) + w_bonus
+            # as in NetHack: your weapon replaces your fists; a monster's adds
+            dmg = weapon if actor is game.player else dmg + weapon
         target.hp -= dmg
         disturb(game, target)
         game.msgs.add(f"{The(game, actor)} {verb(game, actor, ak_name)} "
@@ -288,3 +295,4 @@ def spawn_wanderer(game):
     actor = spawn_at(level, pick_species(rng, game.depth), rng.choice(candidates))
     if game.book_taken:                  # the dungeon knows where you are
         actor.target_pos = game.player.pos
+    return actor
