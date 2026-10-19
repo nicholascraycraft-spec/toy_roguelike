@@ -153,12 +153,16 @@ def get_direction(stdscr, game):
     key = stdscr.getch()
     return MOVES.get(key)
 
-def choose_item(stdscr, game, player, title):
+def choose_item(stdscr, game, player, title, use=None, verb=None):
+    """Menu of inventory items, limited to those with the given use."""
     if not player.inventory:
         game.msgs.add("You aren't carrying anything.")
         return None
-    return show_menu(stdscr, title,
-                    [(a(game, it), it) for it in player.inventory])
+    items = [it for it in player.inventory if use is None or it.kind.use == use]
+    if not items:
+        game.msgs.add(f"You don't have anything to {verb}.")
+        return None
+    return show_menu(stdscr, title, [(a(game, it), it) for it in items])
 
 def cmd_quit(stdscr, game, player):
     raise GameOver("quit")
@@ -247,26 +251,28 @@ def cmd_pickup(stdscr, game, player):
 
 
 def cmd_apply(stdscr, game, player):
-    item = choose_item(stdscr, game, player, "What do you want to apply?")
+    item = choose_item(stdscr, game, player, "What do you want to ring?",
+                       use="ring", verb="apply")
     if item is None:
         return None
-    if item.kind.use == "ring":
-        return lambda: ring_bell(game, player, item)
-    if item.kind.use == "zap":
-        d = get_direction(stdscr, game)
-        if d is None:
-            return None
-        return lambda: zap_wand(game, stdscr, player, item, d)
-    game.msgs.add("You can't apply that.")
-    return None
+    return lambda: ring_bell(game, player, item)
+
+
+def cmd_zap(stdscr, game, player):
+    item = choose_item(stdscr, game, player, "What do you want to zap?",
+                       use="zap", verb="zap")
+    if item is None:
+        return None
+    d = get_direction(stdscr, game)
+    if d is None:
+        return None
+    return lambda: zap_wand(game, stdscr, player, item, d)
 
 
 def cmd_quaff(stdscr, game, player):
-    item = choose_item(stdscr, game, player, "What do you want to drink?")
+    item = choose_item(stdscr, game, player, "What do you want to drink?",
+                       use="quaff", verb="drink")
     if item is None:
-        return None
-    if item.kind.use != "quaff":
-        game.msgs.add("That's a silly thing to drink.")
         return None
     return lambda: quaff(game, player, item)
 
@@ -336,6 +342,7 @@ COMMANDS = {
     ord('o'): cmd_open,
     ord('c'): cmd_close,
     ord('q'): cmd_quaff,
+    ord('z'): cmd_zap,
     ord('Q'): cmd_quit,
     ord(';'): cmd_look,
     ord(':'): cmd_look_down,
