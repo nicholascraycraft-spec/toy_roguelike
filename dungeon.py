@@ -1,7 +1,7 @@
 # claude's help implementing https://journal.stuffwithstuff.com/2014/12/21/rooms-and-mazes/
 from collections import deque
 from actors import KOBOLD, RAT, GameOver, pick_species, place_actor, spawn_at
-from items import BELLS, BOOK, ITEMS, POTIONS, WANDS, Item
+from items import BOOK, CLASSES, ITEMS, Item
 from level import Level
 from terrain import DOOR_CLOSED, FLOOR, STAIRS_DOWN, STAIRS_UP, WALL
 from vec import Rect, Vec
@@ -274,9 +274,8 @@ def load(text):
     assert len({len(r) for r in rows}) == 1, f"ragged map: {[len(r) for r in rows]}"
     level = Level(len(rows[0]), len(rows))
     player_start = None
-    bell_index = 0
-    wand_index = 0
-    potion_index = 0
+    by_char = {c.map_char: c for c in CLASSES if c.map_char}
+    placed = {c.map_char: 0 for c in by_char.values()}   # each kind in turn
     for y, row in enumerate(rows):
         for x, ch in enumerate(row):
             p = Vec(x, y)
@@ -291,15 +290,10 @@ def load(text):
                 spawn_at(level, RAT, p)
             elif ch == "k":
                 spawn_at(level, KOBOLD, p)
-            elif ch == ")":
-                level.items[p] = [Item(BELLS[bell_index % len(BELLS)])]
-                bell_index += 1
-            elif ch == "/":
-                level.items[p] = [Item(WANDS[wand_index % len(WANDS)])]
-                wand_index += 1
-            elif ch == "!":
-                level.items[p] = [Item(POTIONS[potion_index % len(POTIONS)])]
-                potion_index += 1
+            elif ch in by_char:
+                kinds = by_char[ch].kinds
+                level.items[p] = [Item(kinds[placed[ch] % len(kinds)])]
+                placed[ch] += 1
             elif ch == "<":
                 level.up_stair = p
             elif ch == ">":

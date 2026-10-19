@@ -5,8 +5,7 @@ import random
 from actors import HUMAN, GameOver, attack, move_actor, place_actor, spawn, spawn_wanderer
 from ai import take_turn
 from dungeon import GOAL_DEPTH, MAP, generate, load, travel
-from items import (BELL_APPEARANCES, BELLS, POTION_APPEARANCES, POTIONS, WAND_APPEARANCES,
-                   WANDS, ItemKind, a, drop, pick_up, quaff, ring_bell, zap_wand)
+from items import CLASSES, ItemKind, a, drop, pick_up, quaff, ring_bell, zap_wand
 from level import Level, compute_fov, passable
 import pray
 from render import draw, init_styles
@@ -481,9 +480,9 @@ def main(stdscr, test_map=False, seed=None):
             draw(stdscr, game, game.player, overlay={p: ("*", "item")})
             curses.napms(40)
         game.animate = animate
-        shuffle_appearances(game, BELLS, BELL_APPEARANCES)
-        shuffle_appearances(game, WANDS, WAND_APPEARANCES)
-        shuffle_appearances(game, POTIONS, POTION_APPEARANCES)
+        for item_class in CLASSES:
+            if item_class.appearances:
+                shuffle_appearances(game, item_class.kinds, item_class.appearances)
 
         if test_map:                     # hand-made sandbox with every item
             s_level, start = load(MAP)

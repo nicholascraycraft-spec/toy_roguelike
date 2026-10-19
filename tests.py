@@ -4,7 +4,7 @@ import sys
 from actors import (GIANT_ANT, HUMAN, KOBOLD, NEWT, RAT, Actor, GameOver, adjust_speed,
                     The, place_actor, spawn, spawn_at, the, to_hit, verb)
 from dungeon import GOAL_DEPTH, MAP, gen_rooms_level, generate, load, travel
-from items import BOOK, POTION_EFFECTS, WAND_EFFECTS, Item, Potions, pick_up, quaff
+from items import BOOK, CLASSES, ITEMS, POTIONS, WANDS, Item, Potions, pick_up, quaff
 from level import beam_path, compute_fov, flow_field
 from main import Game
 import pray
@@ -15,7 +15,8 @@ from vec import Vec
 
 def test_effects_preserve_indices():
     """No effect may leave actors and turn_order disagreeing."""
-    for kind, effect in WAND_EFFECTS.items():
+    for kind in WANDS:
+        effect = kind.effect
         if effect is None:               # digging acts on terrain, not actors
             continue
         lvl, start = load(MAP)
@@ -119,7 +120,7 @@ def test_book_rouses_floor():
 def test_potions():
     game = Game(random.Random(0), spawn(HUMAN, Vec(0, 0)))
     p = game.player
-    for kind in POTION_EFFECTS:          # every potion drinks without error
+    for kind in POTIONS:                 # every potion drinks without error
         p.inventory.append(Item(kind))
         quaff(game, p, p.inventory[-1])
         assert kind in game.identified and not p.inventory
@@ -224,6 +225,17 @@ def test_called_names_show():
     game.identified.add(Potions.HEALING)    # the true name wins once known
     assert items.a(game, potion) == "a potion of healing"
 
+def test_registry():
+    assert len(ITEMS) == len(set(ITEMS)) == sum(len(c.kinds) for c in CLASSES)
+    for c in CLASSES:
+        assert len(c.appearances) >= len(c.kinds), f"{c.name}: too few appearances"
+        for kind in c.kinds:
+            special = kind is items.Wands.DIGGING
+            assert (kind.effect is None) == special, f"{kind.name}: effect missing"
+    lvl, _ = load(MAP)                   # the sandbox lays out every bell, wand, potion
+    on_map = {it.kind for stack in lvl.items.values() for it in stack}
+    assert set(ITEMS) <= on_map, set(ITEMS) - on_map
+
 def test_escape_needs_book():
     lvl, start = load(MAP)
     game = Game(random.Random(0), Actor(Vec(0,0), "@", given_name="you", species=HUMAN))
@@ -263,4 +275,5 @@ if __name__ == "__main__":
     test_prayer()
     test_prayer_mood_fades()
     test_called_names_show()
+    test_registry()
     print("all tests ok")

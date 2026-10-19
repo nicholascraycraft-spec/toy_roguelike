@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from actors import The, adjust_speed, die, disturb, move_actor, push_from, resists, verb
 from level import beam_path, compute_fov, dig_path, free_cells
 from terrain import FLOOR, WALL
@@ -20,6 +20,9 @@ class ItemKind:
     proper: bool = False
     use: str = ""
     freq: int = 1                # relative chance of generating
+    # what using it does: (game, actor, item) for bells and potions,
+    # (game, actor, target) for wands; None if handled specially
+    effect: object = field(default=None, compare=False, repr=False)
 
 @dataclass
 class Item:
@@ -27,26 +30,6 @@ class Item:
     count: int = 1
     charges: int = 5
     # later: enchantment, identified, cursed
-
-class Bells:
-    RANNA    = ItemKind("Ranna the Sleeper",    "(", "item", weight=20, proper=True, use = "ring")
-    MOSRAEL  = ItemKind("Mosrael the Waker",    "(", "item", weight=35, proper=True, use = "ring")
-    KIBETH   = ItemKind("Kibeth the Walker",    "(", "item", weight=30, proper=True, use = "ring")
-    DYRIM    = ItemKind("Dyrim the Speaker",    "(", "item", weight=35, proper=True, use = "ring")
-    BELGAER  = ItemKind("Belgaer the Thinker",  "(", "item", weight=40, proper=True, use = "ring")
-    SARANETH = ItemKind("Saraneth the Binder",  "(", "item", weight=45, proper=True, use = "ring")
-    ASTARAEL = ItemKind("Astarael the Weeper",  "(", "item", weight=50, proper=True, use = "ring")
-BELLS = [v for v in vars(Bells).values() if isinstance(v, ItemKind)]
-
-BELL_APPEARANCES = [
-    "shimmering bell", "tarnished bell",  "squat bell",
-    "hairline-cracked bell", "verdigris bell", "bone-handled bell",
-    "smooth grey bell"
-    # "pitted iron bell",  "narrow silver bell",
-    # "wide-mouthed bell", "blackened bell",
-    # "leather-wrapped bell", "hollow bell",
-]
-
 
 #region BELLS
 # grammar behavior
@@ -165,15 +148,24 @@ def bell_astarael(game, actor, item):
     if actor.hp <= 0:
         die(game, actor, actor)
 
-BELL_EFFECTS = {
-    Bells.RANNA:    bell_ranna,
-    Bells.MOSRAEL:  bell_mosrael,
-    Bells.KIBETH:   bell_kibeth,
-    Bells.DYRIM:    bell_dyrim,
-    Bells.BELGAER:  bell_belgaer,
-    Bells.SARANETH: bell_saraneth,
-    Bells.ASTARAEL: bell_astarael,
-}
+class Bells:
+    RANNA    = ItemKind("Ranna the Sleeper",    "(", "item", weight=20, proper=True, use="ring", effect=bell_ranna)
+    MOSRAEL  = ItemKind("Mosrael the Waker",    "(", "item", weight=35, proper=True, use="ring", effect=bell_mosrael)
+    KIBETH   = ItemKind("Kibeth the Walker",    "(", "item", weight=30, proper=True, use="ring", effect=bell_kibeth)
+    DYRIM    = ItemKind("Dyrim the Speaker",    "(", "item", weight=35, proper=True, use="ring", effect=bell_dyrim)
+    BELGAER  = ItemKind("Belgaer the Thinker",  "(", "item", weight=40, proper=True, use="ring", effect=bell_belgaer)
+    SARANETH = ItemKind("Saraneth the Binder",  "(", "item", weight=45, proper=True, use="ring", effect=bell_saraneth)
+    ASTARAEL = ItemKind("Astarael the Weeper",  "(", "item", weight=50, proper=True, use="ring", effect=bell_astarael)
+BELLS = [v for v in vars(Bells).values() if isinstance(v, ItemKind)]
+
+BELL_APPEARANCES = [
+    "shimmering bell", "tarnished bell",  "squat bell",
+    "hairline-cracked bell", "verdigris bell", "bone-handled bell",
+    "smooth grey bell"
+    # "pitted iron bell",  "narrow silver bell",
+    # "wide-mouthed bell", "blackened bell",
+    # "leather-wrapped bell", "hollow bell",
+]
 # endregion
 
 #region WANDS
@@ -231,15 +223,15 @@ def wand_nothing(game, actor, target):
     game.msgs.add("Nothing happens.")
 
 class Wands:
-    REPULSION = ItemKind("wand of repulsion",    "/", "item", weight=20, use="zap")
-    SLEEPING  = ItemKind("wand of sleeping",      "/", "item", weight=20, use="zap")
-    DEATH     = ItemKind("wand of death",         "/", "item", weight=20, use="zap")
-    STRIKING  = ItemKind("wand of striking",      "/", "item", weight=20, use="zap")
-    SLOW      = ItemKind("wand of slow monster",  "/", "item", weight=20, use="zap")
-    SPEED     = ItemKind("wand of speed monster", "/", "item", weight=20, use="zap")
-    TELEPORT  = ItemKind("wand of teleportation", "/", "item", weight=20, use="zap")
-    NOTHING   = ItemKind("wand of nothing",       "/", "item", weight=20, use="zap")
-    DIGGING   = ItemKind("wand of digging",       "/", "item", weight=20, use="zap")
+    REPULSION = ItemKind("wand of repulsion",    "/", "item", weight=20, use="zap", effect=wand_repulsion)
+    SLEEPING  = ItemKind("wand of sleeping",      "/", "item", weight=20, use="zap", effect=wand_sleep)
+    DEATH     = ItemKind("wand of death",         "/", "item", weight=20, use="zap", effect=wand_death)
+    STRIKING  = ItemKind("wand of striking",      "/", "item", weight=20, use="zap", effect=wand_striking)
+    SLOW      = ItemKind("wand of slow monster",  "/", "item", weight=20, use="zap", effect=wand_slow)
+    SPEED     = ItemKind("wand of speed monster", "/", "item", weight=20, use="zap", effect=wand_speed)
+    TELEPORT  = ItemKind("wand of teleportation", "/", "item", weight=20, use="zap", effect=wand_teleport)
+    NOTHING   = ItemKind("wand of nothing",       "/", "item", weight=20, use="zap", effect=wand_nothing)
+    DIGGING   = ItemKind("wand of digging",       "/", "item", weight=20, use="zap")  # zap_wand digs
 WANDS = [v for v in vars(Wands).values() if isinstance(v, ItemKind)]
 
 WAND_APPEARANCES = [
@@ -247,18 +239,6 @@ WAND_APPEARANCES = [
     "curved wand", "hexagonal wand", "spiked wand", "jeweled wand",
     "balsa wand", "pine wand", "plywood wand"
 ]
-
-WAND_EFFECTS = {
-    Wands.REPULSION: wand_repulsion,
-    Wands.SLEEPING:  wand_sleep,
-    Wands.DEATH:     wand_death,
-    Wands.STRIKING:  wand_striking,
-    Wands.SLOW:      wand_slow,
-    Wands.SPEED:     wand_speed,
-    Wands.TELEPORT:  wand_teleport,
-    Wands.NOTHING:   wand_nothing,
-    Wands.DIGGING:   None,            # handled in zap_wand; acts on the path
-}
 # endregion
 
 #region POTIONS
@@ -293,11 +273,11 @@ def potion_water(game, actor, item):
         game.msgs.add("This tastes like water.")
 
 class Potions:
-    HEALING       = ItemKind("potion of healing",       "!", "item", freq=4, use="quaff")
-    EXTRA_HEALING = ItemKind("potion of extra healing", "!", "item", freq=2, use="quaff")
-    SLEEPING      = ItemKind("potion of sleeping",      "!", "item", use="quaff")
-    CONFUSION     = ItemKind("potion of confusion",     "!", "item", use="quaff")
-    WATER         = ItemKind("potion of water",         "!", "item", use="quaff")
+    HEALING       = ItemKind("potion of healing",       "!", "item", freq=4, use="quaff", effect=potion_healing)
+    EXTRA_HEALING = ItemKind("potion of extra healing", "!", "item", freq=2, use="quaff", effect=potion_extra_healing)
+    SLEEPING      = ItemKind("potion of sleeping",      "!", "item", use="quaff", effect=potion_sleeping)
+    CONFUSION     = ItemKind("potion of confusion",     "!", "item", use="quaff", effect=potion_confusion)
+    WATER         = ItemKind("potion of water",         "!", "item", use="quaff", effect=potion_water)
 POTIONS = [v for v in vars(Potions).values() if isinstance(v, ItemKind)]
 
 POTION_APPEARANCES = [
@@ -305,15 +285,23 @@ POTION_APPEARANCES = [
     "cloudy potion", "bubbly potion", "oily potion", "ruby potion",
 ]
 
-POTION_EFFECTS = {
-    Potions.HEALING:       potion_healing,
-    Potions.EXTRA_HEALING: potion_extra_healing,
-    Potions.SLEEPING:      potion_sleeping,
-    Potions.CONFUSION:     potion_confusion,
-    Potions.WATER:         potion_water,
-}
+# endregion
 
-ITEMS = WANDS + BELLS + POTIONS
+#region REGISTRY
+@dataclass(frozen=True)
+class ItemClass:
+    """One class of item. A new class is one entry in CLASSES."""
+    name: str
+    kinds: list
+    appearances: list = ()      # shuffled onto kinds each game; empty: always known
+    map_char: str = ""          # stands for this class on the --test map
+
+CLASSES = [
+    ItemClass("bell",   BELLS,   BELL_APPEARANCES,   map_char=")"),
+    ItemClass("wand",   WANDS,   WAND_APPEARANCES,   map_char="/"),
+    ItemClass("potion", POTIONS, POTION_APPEARANCES, map_char="!"),
+]
+ITEMS = [k for c in CLASSES for k in c.kinds]
 # endregion
 
 #region GOAL
@@ -349,7 +337,7 @@ def ring_bell(game, actor, item):
     if actor.confused and game.rng.random() < 0.5:
         kind = game.rng.choice(BELLS)       # a fumbled stroke sounds another bell
         say(game, actor, f"{possessive(game, actor)} hand slips, and the bell speaks wrongly.")
-    effect = BELL_EFFECTS.get(kind)
+    effect = kind.effect
     if effect is None:
         game.msgs.add("Nothing happens.")
         return
@@ -360,7 +348,7 @@ def ring_bell(game, actor, item):
 def quaff(game, actor, item):
     actor.inventory.remove(item)
     say(game, actor, f"{The(game, actor)} {verb(game, actor, 'drink')} {a(game, item)}.")
-    POTION_EFFECTS[item.kind](game, actor, item)
+    item.kind.effect(game, actor, item)
     learn(game, actor, item.kind)
 
 def do_digging(game, actor, item, d):
@@ -411,7 +399,7 @@ def zap_wand(game, actor, item, d):
             continue
         hit_anything = True
         if not resists(game, target):
-            WAND_EFFECTS[item.kind](game, actor, target)
+            item.kind.effect(game, actor, target)
             learn(game, actor, item.kind)
         break
 
