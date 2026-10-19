@@ -1,7 +1,8 @@
 import random
 import sys
 
-from actors import HUMAN, RAT, Actor, GameOver, adjust_speed, place_actor
+from actors import (GIANT_ANT, HUMAN, NEWT, RAT, Actor, GameOver, adjust_speed,
+                    place_actor, spawn, to_hit)
 from dungeon import GOAL_DEPTH, MAP, gen_rooms_level, generate, load, travel
 from items import BOOK, WAND_EFFECTS, Item
 from level import beam_path, flow_field
@@ -91,6 +92,13 @@ def test_first_floor_has_exit(trials=20):
         assert lvl[lvl.up_stair] is STAIRS_UP, f"seed {seed}: no way out"
         assert lvl.up_stair not in lvl.actors, f"seed {seed}: start occupied"
 
+def test_lower_ac_is_harder_to_hit():
+    game = Game(random.Random(0), spawn(HUMAN, Vec(0, 0)))
+    rat = spawn(RAT, Vec(1, 0))
+    newt, ant = spawn(NEWT, Vec(2, 0)), spawn(GIANT_ANT, Vec(3, 0))
+    assert to_hit(game, game.player, ant) < to_hit(game, game.player, newt)
+    assert to_hit(game, rat, ant) < to_hit(game, rat, newt)
+
 def test_escape_needs_book():
     lvl, start = load(MAP)
     game = Game(random.Random(0), Actor(Vec(0,0), "@", given_name="you", species=HUMAN))
@@ -119,4 +127,5 @@ if __name__ == "__main__":
     test_escape_needs_book()
     test_goal_floor_is_bottom()
     test_first_floor_has_exit()
+    test_lower_ac_is_harder_to_hit()
     print("all tests ok")

@@ -182,10 +182,15 @@ def resists(game, target):#, kind) # kind as in the damage_kind
     return False
 
 
+def to_hit(game, actor, target):
+    """NetHack-style: lower AC is better, and stronger attackers hit more."""
+    level = actor.xp_level if actor is game.player else actor.species.level
+    return 10 + target.species.ac + level
+
 def attack(game, actor, target):
     rng = game.rng
     for ak_name, dice, sides in actor.species.attacks:
-        if rng.randint(1, 20) < target.species.ac:
+        if rng.randint(1, 20) >= to_hit(game, actor, target):
             game.msgs.add(f"the {(actor.name)} misses the {(target.name)}.")
             continue
         dmg = sum(rng.randint(1, sides) for _ in range(dice))
