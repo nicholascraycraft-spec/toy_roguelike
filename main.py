@@ -334,6 +334,33 @@ def cmd_look_down(stdscr, game, player):
     game.msgs.add(describe(game, player.pos))
     return None
 
+HELP = """\
+Find the Book of the Dead on level {book} and carry it back up the stairs.
+
+Move        h j k l y u b n, arrow keys, or numpad
+Wait        . or s
+Stairs      < go up      > go down
+Pick up     ,            Drop       d
+Inventory   i
+Apply       a  use a tool (ring a bell)
+Zap         z  zap a wand, then pick a direction
+Quaff       q  drink a potion
+Doors       o  open      c  close   (walking into a door opens it)
+Look        ;  move a cursor around    :  look here
+Help        ?
+Quit        Q
+
+Press any key to return."""
+
+def cmd_help(stdscr, game, player):
+    h, w = stdscr.getmaxyx()
+    stdscr.erase()
+    for y, line in enumerate(HELP.format(book=GOAL_DEPTH + 1).splitlines()[:h - 1]):
+        stdscr.addstr(y, 0, line[:w - 1])
+    stdscr.refresh()
+    stdscr.getch()
+    return None                      # reading the help is free
+
 COMMANDS = {
     ord(','): cmd_pickup,
     ord('.'): cmd_wait,
@@ -349,6 +376,7 @@ COMMANDS = {
     ord('Q'): cmd_quit,
     ord(';'): cmd_look,
     ord(':'): cmd_look_down,
+    ord('?'): cmd_help,
 }
 
 def get_action(stdscr, game, player):
@@ -359,7 +387,7 @@ def get_action(stdscr, game, player):
         return cmd(stdscr, game, player)
     if d := MOVES.get(key):
         return cmd_move(stdscr, game, player, d)
-    game.msgs.add("Unknown command.")
+    game.msgs.add("Unknown command. Press ? for help.")
     return None
 # endregion
 
@@ -445,7 +473,7 @@ def main(stdscr, test_map=False, seed=None):
         game.levels.append(s_level)
         place_actor(s_level, player, start)
         game.msgs.add(f"Find the Book of the Dead on level {GOAL_DEPTH + 1} "
-                      "and carry it back up the stairs.")
+                      "and carry it back up the stairs. Press ? for help.")
 
         curses.curs_set(0)
         stdscr.keypad(True)
