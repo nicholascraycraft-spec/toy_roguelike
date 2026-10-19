@@ -154,11 +154,12 @@ def get_direction(stdscr, game):
     return MOVES.get(key)
 
 def choose_item(stdscr, game, player, title, use=None, verb=None):
-    """Menu of inventory items, limited to those with the given use."""
+    """Menu of inventory items, limited to those whose use is in `use`."""
     if not player.inventory:
         game.msgs.add("You aren't carrying anything.")
         return None
-    items = [it for it in player.inventory if use is None or it.kind.use == use]
+    uses = {use} if isinstance(use, str) else use
+    items = [it for it in player.inventory if uses is None or it.kind.use in uses]
     if not items:
         game.msgs.add(f"You don't have anything to {verb}.")
         return None
@@ -250,12 +251,17 @@ def cmd_pickup(stdscr, game, player):
     return None if item is None else (lambda: pick_up(game, player, item))
 
 
+# what 'a' does with each kind of usable item; each returns an action or None
+APPLY_ACTIONS = {
+    "ring": lambda stdscr, game, player, item: lambda: ring_bell(game, player, item),
+}
+
 def cmd_apply(stdscr, game, player):
-    item = choose_item(stdscr, game, player, "What do you want to ring?",
-                       use="ring", verb="apply")
+    item = choose_item(stdscr, game, player, "What do you want to use or apply?",
+                       use=APPLY_ACTIONS.keys(), verb="use or apply")
     if item is None:
         return None
-    return lambda: ring_bell(game, player, item)
+    return APPLY_ACTIONS[item.kind.use](stdscr, game, player, item)
 
 
 def cmd_zap(stdscr, game, player):
