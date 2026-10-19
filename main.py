@@ -284,6 +284,7 @@ Look        ;  move a cursor around    :  look here
 Extended    #  then a command name; any unique prefix works
               #pray   ask the Charter for help (don't ask too often)
               #call   nickname an unidentified kind of item
+              #apply #quaff #zap  same as a, q, z
               #?      list extended commands
 Help        ?
 Quit        Q
@@ -347,13 +348,18 @@ def cmd_call(stdscr, game, player):
     return None                           # naming things is free
 
 def cmd_extended_list(stdscr, game, player):
+    keys = {cmd: chr(k) for k, cmd in COMMANDS.items()}
     show_menu(stdscr, "Extended commands:",
-              [(f"#{name}", name) for name in EXTENDED if name != "?"])
+              [(f"#{name}" + (f"  ({keys[cmd]})" if cmd in keys else ""), name)
+               for name, cmd in EXTENDED.items() if name != "?"])
     return None
 
 EXTENDED = {
-    "pray": cmd_pray,
-    "call": cmd_call,
+    "apply": cmd_apply,
+    "call":  cmd_call,
+    "pray":  cmd_pray,
+    "quaff": cmd_quaff,
+    "zap":   cmd_zap,
     "?": cmd_extended_list,
 }
 

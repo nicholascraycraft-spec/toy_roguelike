@@ -40,7 +40,8 @@ Press `?` in the game for this list.
 | `;` `:` | look around with a cursor / look here |
 | `#pray` | ask the Charter for help; it won't answer if you ask too often |
 | `#call` | nickname an unidentified kind of item ("murky potion called red stuff") |
-| `#?` | list extended commands (`#` takes any unique prefix, like `#p`) |
+| `#apply` `#quaff` `#zap` | same as `a`, `q`, `z` |
+| `#?` | list extended commands (`#` takes any unique prefix, like `#p` or `#q`) |
 | `?` | help |
 | `Q` | quit |
 
