@@ -1,13 +1,15 @@
 import random
 import sys
 
-from actors import (GIANT_ANT, HUMAN, NEWT, RAT, Actor, GameOver, adjust_speed,
-                    The, place_actor, spawn, the, to_hit, verb)
+from actors import (GIANT_ANT, HUMAN, KOBOLD, NEWT, RAT, Actor, GameOver, adjust_speed,
+                    The, place_actor, spawn, spawn_at, the, to_hit, verb)
 from dungeon import GOAL_DEPTH, MAP, gen_rooms_level, generate, load, travel
 from items import BOOK, POTION_EFFECTS, WAND_EFFECTS, Item, Potions, pick_up, quaff
-from level import beam_path, flow_field
+from level import beam_path, compute_fov, flow_field
 from main import Game
-from terrain import STAIRS_DOWN, STAIRS_UP
+from ai import use_item
+import items
+from terrain import STAIRS_DOWN, STAIRS_UP, WALL
 from vec import Vec
 
 def test_effects_preserve_indices():
@@ -141,6 +143,48 @@ def test_messages_use_you():
         == "The sewer rat touches you"
     assert verb(game, game.player, "be") == "are" and verb(game, kobold, "be") == "is"
 
+def monster_scene(species=None):
+    """Player and a kobold in plain sight on a fresh sandbox level."""
+    lvl, start = load(MAP)
+    game = Game(random.Random(1), spawn(HUMAN, Vec(0, 0)))
+    game.player.given_name = "you"
+    game.levels.append(lvl)
+    place_actor(lvl, game.player, start)
+    kobold = spawn_at(lvl, species or KOBOLD, start + Vec(3, 0))
+    return game, kobold
+
+def test_monster_drinks_when_hurt():
+    game, kobold = monster_scene()
+    kobold.inventory.append(Item(Potions.HEALING))
+    kobold.hp = 1
+    assert use_item(game, kobold)
+    assert kobold.hp > 1 and not kobold.inventory
+    assert Potions.HEALING in game.identified          # you watched it drink
+
+def test_monster_zaps_when_lined_up():
+    game, kobold = monster_scene()
+    wand = Item(items.Wands.STRIKING)
+    kobold.inventory.append(wand)
+    for _ in range(50):
+        if use_item(game, kobold):
+            break
+    assert wand.charges == 4, "kobold never zapped"
+
+def test_monster_never_zaps_death():
+    game, kobold = monster_scene()
+    kobold.inventory.append(Item(items.Wands.DEATH))
+    assert not any(use_item(game, kobold) for _ in range(50))
+
+def test_unseen_use_teaches_nothing():
+    game, kobold = monster_scene()
+    lvl = game.level
+    lvl[kobold.pos + Vec(-1, 0)] = WALL                 # wall it off from view
+    assert kobold.pos not in compute_fov(lvl, game.player.pos)
+    potion = Item(Potions.HEALING)
+    kobold.inventory.append(potion)
+    quaff(game, kobold, potion)
+    assert Potions.HEALING not in game.identified
+
 def test_escape_needs_book():
     lvl, start = load(MAP)
     game = Game(random.Random(0), Actor(Vec(0,0), "@", given_name="you", species=HUMAN))
@@ -173,4 +217,8 @@ if __name__ == "__main__":
     test_book_rouses_floor()
     test_potions()
     test_messages_use_you()
+    test_monster_drinks_when_hurt()
+    test_monster_zaps_when_lined_up()
+    test_monster_never_zaps_death()
+    test_unseen_use_teaches_nothing()
     print("all tests ok")
