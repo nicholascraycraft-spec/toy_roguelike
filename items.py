@@ -24,6 +24,8 @@ class ItemKind:
     # (game, actor, target) for wands; None if handled specially
     effect: object = field(default=None, compare=False, repr=False)
     damage: tuple = ()           # weapons: (dice, sides, bonus)
+    slot: str = ""                # armor: body, helmet or shield
+    ac: int = 0                  # armor: how much it lowers AC
 
 @dataclass
 class Item:
@@ -316,16 +318,52 @@ def wield(game, actor, item):
         say(game, actor, f"{The(game, actor)} {verb(game, actor, 'wield')} {a(game, item)}.")
 
 def arm(rng, actor):
-    """Some monsters with hands start out carrying a weapon."""
+    """Some monsters with hands start out carrying a weapon, or armor."""
     if actor.species.hands and rng.random() < 0.4:
         kind = rng.choices(WEAPONS, weights=[k.freq for k in WEAPONS])[0]
         actor.inventory.append(Item(kind))
         actor.wielded = actor.inventory[-1]
+    if actor.species.hands and rng.random() < 0.2:
+        kind = rng.choices(ARMOR, weights=[k.freq for k in ARMOR])[0]
+        actor.inventory.append(Item(kind))
+        actor.worn[kind.slot] = actor.inventory[-1]
     return actor
+
+# endregion
+
+#region ARMOR
+class Armor:
+    LEATHER_ARMOR = ItemKind("leather armor", "[", "item", weight=150, freq=3, use="wear", slot="body",   ac=2)
+    RING_MAIL     = ItemKind("ring mail",     "[", "item", weight=250, freq=2, use="wear", slot="body",   ac=3)
+    CHAIN_MAIL    = ItemKind("chain mail",    "[", "item", weight=300, freq=1, use="wear", slot="body",   ac=5)
+    HELMET        = ItemKind("helmet",        "[", "item", weight=30,  freq=2, use="wear", slot="helmet", ac=1)
+    SMALL_SHIELD  = ItemKind("small shield",  "[", "item", weight=30,  freq=2, use="wear", slot="shield", ac=1)
+ARMOR = [v for v in vars(Armor).values() if isinstance(v, ItemKind)]
+
+def wear(game, actor, item):
+    actor.worn[item.kind.slot] = item
+    say(game, actor, f"{The(game, actor)} {verb(game, actor, 'put')} on {a(game, item)}.")
+
+def take_off(game, actor, item):
+    del actor.worn[item.kind.slot]
+    say(game, actor, f"{The(game, actor)} {verb(game, actor, 'take')} off {a(game, item)}.")
+
+def is_worn(actor, item):
+    return actor.worn.get(item.kind.slot) is item
+
+def armor_to_wear(actor):
+    """Best unworn armor for an empty slot, for monsters dressing themselves."""
+    options = [it for it in actor.inventory
+               if it.kind.use == "wear" and it.kind.slot not in actor.worn]
+    return max(options, key=lambda it: it.kind.ac, default=None)
 
 def label(game, actor, item):
     """How an item reads in the actor's inventory menus."""
-    return a(game, item) + (" (weapon in hand)" if actor.wielded is item else "")
+    if actor.wielded is item:
+        return a(game, item) + " (weapon in hand)"
+    if item.kind.use == "wear" and is_worn(actor, item):
+        return a(game, item) + " (being worn)"
+    return a(game, item)
 # endregion
 
 #region REGISTRY
@@ -342,6 +380,7 @@ CLASSES = [
     ItemClass("wand",   WANDS,   WAND_APPEARANCES,   map_char="/"),
     ItemClass("potion", POTIONS, POTION_APPEARANCES, map_char="!"),
     ItemClass("weapon", WEAPONS,                     map_char=")"),
+    ItemClass("armor",  ARMOR,                       map_char="["),
 ]
 ITEMS = [k for c in CLASSES for k in c.kinds]
 # endregion

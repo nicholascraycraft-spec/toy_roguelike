@@ -1,6 +1,6 @@
 from actors import attack, disturb, move_actor
-from items import (Bells, Potions, Wands, best_weapon, pick_up, quaff, ring_bell, weapon_value,
-                   wield, zap_wand)
+from items import (Bells, Potions, Wands, armor_to_wear, best_weapon, pick_up, quaff, ring_bell,
+                   wear, weapon_value, wield, zap_wand)
 from level import beam_path, compute_fov, get_flow, step_downhill
 from vec import Vec, chebyshev
 
@@ -88,6 +88,9 @@ def take_turn(game, actor):
         best = best_weapon(actor)
         if weapon_value(best) > weapon_value(actor.wielded):
             wield(game, actor, best)
+            return
+        if armor := armor_to_wear(actor):
+            wear(game, actor, armor)
             return
     # new code
     sees_player = player.pos in compute_fov(level, actor.pos)

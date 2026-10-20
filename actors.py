@@ -129,6 +129,7 @@ class Actor:
     deafness: int = 0
     confused: int = 0
     wielded: object = None              # an Item from inventory, or bare hands
+    worn: dict = field(default_factory=dict)   # armor slot -> Item
     speed_mod: int = 0
 
     @property
@@ -150,6 +151,10 @@ class Actor:
     @property
     def deaf(self):
         return self.species.earless or self.deafness > 0
+    @property
+    def ac(self):
+        """Armor class: lower is better, as in NetHack."""
+        return self.species.ac - sum(it.kind.ac for it in self.worn.values())
     
     # monster AI fields
     target_pos: Vec | None = None      # where I think the player is
@@ -186,6 +191,7 @@ def die(game, killer, target):
         level.items.setdefault(target.pos, []).append(item)
     target.inventory.clear()
     target.wielded = None
+    target.worn.clear()
 
     if target is not game.player:        # the player's death is announced by main
         game.msgs.add(f"{The(game, target)} dies.")
@@ -208,7 +214,7 @@ def resists(game, target):#, kind) # kind as in the damage_kind
 def to_hit(game, actor, target):
     """NetHack-style: lower AC is better, and stronger attackers hit more."""
     level = actor.xp_level if actor is game.player else actor.species.level
-    return 10 + target.species.ac + level
+    return 10 + target.ac + level
 
 def attack(game, actor, target):
     rng = game.rng

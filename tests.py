@@ -231,7 +231,7 @@ def test_registry():
         if c.appearances:                # empty pool: always known by name
             assert len(c.appearances) >= len(c.kinds), f"{c.name}: too few appearances"
         for kind in c.kinds:
-            special = kind is items.Wands.DIGGING or kind.use == "wield"
+            special = kind is items.Wands.DIGGING or kind.use in ("wield", "wear")
             assert (kind.effect is None) == special, f"{kind.name}: effect missing"
     lvl, _ = load(MAP)                   # the sandbox lays out every bell, wand, potion
     on_map = {it.kind for stack in lvl.items.values() for it in stack}
@@ -260,6 +260,26 @@ def test_monsters_wield_better_weapons():
     assert kobold.wielded.kind is items.Weapons.MACE
     take_turn(game, kobold)
     assert kobold.wielded.kind is items.Weapons.MACE
+
+def test_armor():
+    game, kobold = monster_scene()
+    p = game.player
+    base = p.ac
+    mail, helmet = Item(items.Armor.RING_MAIL), Item(items.Armor.HELMET)
+    p.inventory += [mail, helmet]
+    before = to_hit(game, kobold, p)
+    items.wear(game, p, mail)
+    items.wear(game, p, helmet)
+    assert p.ac == base - 4 and to_hit(game, kobold, p) == before - 4
+    assert items.label(game, p, mail) == "a ring mail (being worn)"
+    items.take_off(game, p, mail)
+    assert p.ac == base - 1 and not items.is_worn(p, mail)
+
+def test_monsters_put_on_armor():
+    game, kobold = monster_scene()
+    kobold.inventory.append(Item(items.Armor.LEATHER_ARMOR))
+    take_turn(game, kobold)
+    assert kobold.ac == KOBOLD.ac - 2
 
 def test_escape_needs_book():
     lvl, start = load(MAP)
@@ -303,4 +323,6 @@ if __name__ == "__main__":
     test_registry()
     test_weapons()
     test_monsters_wield_better_weapons()
+    test_armor()
+    test_monsters_put_on_armor()
     print("all tests ok")

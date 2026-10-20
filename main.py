@@ -5,8 +5,8 @@ import random
 from actors import HUMAN, GameOver, attack, move_actor, place_actor, spawn, spawn_wanderer
 from ai import take_turn
 from dungeon import GOAL_DEPTH, MAP, generate, load, travel
-from items import (CLASSES, Item, ItemKind, Weapons, a, arm, drop, label, pick_up, quaff,
-                   ring_bell, wield, zap_wand)
+from items import (CLASSES, Item, ItemKind, Weapons, a, arm, drop, is_worn, label, pick_up,
+                   quaff, ring_bell, take_off, wear, wield, zap_wand)
 from level import Level, compute_fov, passable
 import pray
 from render import draw, init_styles
@@ -124,7 +124,38 @@ def cmd_drop(stdscr, game, player):
     item = choose_item(stdscr, game, player, "What do you want to drop?")
     if item is None:
         return None
+    if item.kind.use == "wear" and is_worn(player, item):
+        game.msgs.add("You cannot drop something you are wearing.")
+        return None
     return lambda: drop(game, player, item)
+
+
+def cmd_wear(stdscr, game, player):
+    unworn = [it for it in player.inventory
+              if it.kind.use == "wear" and not is_worn(player, it)]
+    if not unworn:
+        game.msgs.add("You don't have anything else to wear.")
+        return None
+    item = show_menu(stdscr, "What do you want to wear?",
+                     [(label(game, player, it), it) for it in unworn])
+    if item is None:
+        return None
+    if item.kind.slot in player.worn:
+        game.msgs.add(f"You are already wearing {a(game, player.worn[item.kind.slot])}.")
+        return None
+    return lambda: wear(game, player, item)
+
+
+def cmd_takeoff(stdscr, game, player):
+    if not player.worn:
+        game.msgs.add("You're not wearing any armor.")
+        return None
+    worn = list(player.worn.values())
+    item = show_menu(stdscr, "What do you want to take off?",
+                     [(label(game, player, it), it) for it in worn])
+    if item is None:
+        return None
+    return lambda: take_off(game, player, item)
 
 
 def _door_cmd(stdscr, game, player, want, action, complaint):
@@ -297,6 +328,7 @@ Apply       a  use a tool (ring a bell)
 Zap         z  zap a wand, then pick a direction
 Quaff       q  drink a potion
 Wield       w  wield a weapon (or your bare hands)
+Armor       W  wear      T  take off   (lower AC is better)
 Doors       o  open      c  close   (walking into a door opens it)
 Look        ;  move a cursor around    :  look here
 Extended    #  then a command name; any unique prefix works
@@ -377,6 +409,8 @@ EXTENDED = {
     "call":  cmd_call,
     "pray":  cmd_pray,
     "quaff": cmd_quaff,
+    "takeoff": cmd_takeoff,
+    "wear":  cmd_wear,
     "wield": cmd_wield,
     "zap":   cmd_zap,
     "?": cmd_extended_list,
@@ -405,6 +439,8 @@ COMMANDS = {
     ord('q'): cmd_quaff,
     ord('z'): cmd_zap,
     ord('w'): cmd_wield,
+    ord('W'): cmd_wear,
+    ord('T'): cmd_takeoff,
     ord('Q'): cmd_quit,
     ord(';'): cmd_look,
     ord(':'): cmd_look_down,
